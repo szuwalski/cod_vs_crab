@@ -1,0 +1,79 @@
+[0m[0K]0;:/c/cod_vs_crab[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Ks[0Kt[0K[?25l$ git res[0K[?25he[0Kt[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Ke[0K[?25l$ git re[0K[?25hs[0Ke[0Kt[0K[13G[?25l$ git reset -[0K[?25hh[0Ka[0Kr[0Kd[0K[19G[?25l$ git reset -hard o[0K[?25hr[0Kg[0K[?25l$ git reset -hard or[0K[?25hi[0Kg[0Ki[0Kn[0K/[0Km[0Ka[0Ks[0Kt[0Ke[0Kr[0K[?25l
+[0K[?25herror: did you mean `--hard` (with two dashes ?)[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Ks[0Ke[0Kt[0K[13G[?25l$ git reset -[0K[?25h-[0Kh[0Ka[0Kr[0Kd[0K[20G[?25l$ git reset --hard o[0K[?25hr[0Ki[0Kg[0Ki[0Kn[0K/[0Km[0Ka[0Ks[0Kt[0Ke[0Kr[0K[?25l
+[0K[?25hHEAD is now at ba43561 Initial commit[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Kf[0Kl[0Ko[0Kg[0K[?25l
+[0K[?25h[0;33mba43561[0m HEAD@{0}: reset: moving to origin/master[0K[?25l
+[0;33mbded0d2[0m HEAD@{1}: commit: got rid of large file[0K[?25h[?25l
+[0;33m0f4533d[0m HEAD@{2}: commit: initial data dump and outline[0K
+[0;33mba43561[0m HEAD@{3}: clone: from https://github.com/szuwalski/cod_vs_crab[0K
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Ks[0Ke[0Kt[0K[13G[?25l$ git reset H[0K[?25hE[0KA[0KD[0K@[0K{[0K1[0K}[0K[?25l
+[0K[?25hUnstaged changes after reset:[0K[?25l
+D       .gitignore[0K
+D       Paper notes.docx[0K
+D       data/cod.csv[0K
+D       data/maturity.csv[0K
+D       dumb flow chart.pdf[0K
+D       dumb flow chart.pptx[0K
+D       literature/Ernst 2005 Spatial dynamics of female crab.pdf[0K
+D       literature/Ernst 2012 life history and recruitment of female snow crab in the EBS.pdf[0K
+D       literature/Gross 2015 Snow crab in the chukchi 2009 to 2013.pdf[0K
+D       literature/Nichol 2017 Movement in the bering sea.pdf[0K
+D       literature/Orensanz 2007 Variation of femal size and maturity in the EBS.pdf[0K
+D       literature/Parada 2010 Spatial dynamics of snow crab in the EBS.pdf[0K
+D       literature/Thorson et al 2016 Joint dynamics species distribution models.pdf[0K
+D       literature/Yamamoto 2015 Effects of temperature on snow crab growth.pdf[0K
+D       longform_opilio.Rdata[0K
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ git reset HEAD@{1}[0K[?25h[20G[?25l$ git reset HEAD@{}[0K[19G[?25h[?25l$ git reset HEAD@{2}[0K[20G[?25h[?25l
+[0K[?25hUnstaged changes after reset:[0K[?25l
+D       .gitignore[0K
+D       Paper notes.docx[0K
+D       data/cod.csv[0K
+D       data/maturity.csv[0K
+D       dumb flow chart.pdf[0K
+D       dumb flow chart.pptx[0K
+D       literature/Ernst 2005 Spatial dynamics of female crab.pdf[0K
+D       literature/Ernst 2012 life history and recruitment of female snow crab in the EBS.pdf[0K
+D       literature/Gross 2015 Snow crab in the chukchi 2009 to 2013.pdf[0K
+D       literature/Nichol 2017 Movement in the bering sea.pdf[0K
+D       literature/Orensanz 2007 Variation of femal size and maturity in the EBS.pdf[0K
+D       literature/Parada 2010 Spatial dynamics of snow crab in the EBS.pdf[0K
+D       literature/Thorson et al 2016 Joint dynamics species distribution models.pdf[0K
+D       literature/Yamamoto 2015 Effects of temperature on snow crab growth.pdf[0K
+D       longform_opilio.Rdata[0K
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ -[0K[?25h-[0Kc[0Ka[0Kc[0Kh[0Ke[0K[?25l
+[0K[?25hbash: --cache: command not found[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0m[0K[?25h[0;36m (master)[0m[0K[?25l
+$[0K[3G[?25h[?25l$ -[0K[?25h-[0Kl[0Ko[0Ks[0Kt[0K-[0Kf[0Ko[0Ku[0Kn[0Kd[0K[?25l
+[0K[?25hbash: --lost-found: command not found[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Ks[0Ke[0Kt[0K[13G[?25l$ git reset -[0K[?25h-[0Kh[0Ka[0Kr[0Kd[0K[?25l
+[0K[?25hHEAD is now at bded0d2 got rid of large file[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ g[0K[?25hi[0Kt[0K[7G[?25l$ git r[0K[?25he[0Ks[0Ke[0Kt[0K[13G[?25l$ git reset -[0K[?25h-[0Kh[0Ka[0Kr[0Kd[0K[20G[?25l$ git reset --hard H[0K[?25hE[0KA[0KD[0K~[0K1[0K[?25l
+[0K[?25hHEAD is now at 0f4533d initial data dump and outline[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h[?25l$ git reset --hard HEAD~1[0K[?25h[?25l
+[0K[?25hHEAD is now at ba43561 Initial commit[0K[?25l
+[0K[?25h[?25l
+[0;32mCody@Opilio [0;35m [0;33m/c/cod_vs_crab[0;36m (master)[0m[0K
+$[0K[3G[?25h

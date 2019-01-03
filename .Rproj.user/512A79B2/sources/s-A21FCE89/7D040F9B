@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1546548395401.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "21|1|120|0|\n",
+    "hash" : "0",
+    "id" : "7D040F9B",
+    "lastKnownWriteTime" : 1546554133,
+    "last_content_update" : 1546554133062,
+    "path" : "C:/cod_vs_crab/producing opilio data.R",
+    "project_path" : "producing opilio data.R",
+    "properties" : {
+        "cursorPosition" : "157,0",
+        "scrollLine" : "143",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
