@@ -1,0 +1,72 @@
+---
+title: "Cod and Crab CCM"
+author: "Owen Liu"
+date: "January 7, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(rEDM)
+
+# figure theme
+plot_theme <-   theme_minimal()+
+  theme(text=element_text(family="sans",size=12,color="black"),
+        legend.text = element_text(size=14),
+        axis.title=element_text(family="sans",size=14,color="black"),
+        axis.text=element_text(family="sans",size=8,color="black"),
+        panel.grid.major = element_line(color="gray50",linetype=3))
+theme_set(plot_theme)
+```
+
+# Pacific Cod and Snow Crab: Evidence of Dynamic Causation?
+
+Here we apply convergent cross mapping to time series data of pacific cod and snow crab to test if there is evidence that they drive one another's dynamics, specifically:
+
+*Is there evidence that Pacific Cod abundance drives Snow Crab recruitment? Conversely, does Snow Crab recruitment drive Pacific Cod abundance?*
+
+## Import data
+
+```{r}
+load('data/cod_dat_clean.Rdata')
+load('data/longform_opilio.Rdata')
+```
+
+For now, the only cod data we have is total weight and total numbers, by station, by year. We do not have sex, size, or age composition.
+
+For snow crab, we have sex, size, and maturity. However, for the purposes of this first analysis, we will use time series of recruits.
+
+The data are cleaned from the annual summer bottom trawl survey in the Eastern Bering Sea (EBS).
+
+Finally, for simplicity's sake, for now we will define "recruits" as snow crab <38 mm CW
+
+```{r}
+opi_recruits <- opi_dat %>% 
+  filter(Size<38,units=='number')
+
+# normalized cod time series
+codnorm <- cod_dat_clean %>% 
+  select(station,Year,dens_weight) %>%
+  arrange(station,Year) %>% 
+  group_by(station) %>% 
+  # fill in explicit missing years
+  complete(Year=full_seq(Year,1)) %>%
+  ungroup() %>% 
+  mutate(normdens=(dens_weight-mean(dens_weight,na.rm=T))/sd(dens_weight,na.rm=T))
+
+codsegs <- codnorm %>% 
+  ungroup() %>% 
+  mutate(n=row_number()) %>% 
+  group_by(station) %>% 
+  summarise(first=first(n),last=last(n)) %>% 
+  select(-station) %>% ungroup()
+```
+
+## Simplex for cod
+```{r}
+codsimp <- simplex(codnorm$normdens,lib=as.matrix(codsegs))
+```
+
+

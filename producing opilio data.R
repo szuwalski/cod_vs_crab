@@ -10,6 +10,13 @@ binsize  <-5
 sizes		 <-seq(27.5,132.5,binsize)
 stations<-unique(data$GIS_STATION)
 
+# haul join key (for comparing to other species, e.g. cod, collected in the same survey)
+library(dplyr)
+haul_join_key <- data %>% select(HAULJOIN,GIS_STATION,MID_LATITUDE,MID_LONGITUDE,AREA_SWEPT_VARIABLE) %>% 
+  distinct() %>%
+  rename(midlat=MID_LATITUDE,midlon=MID_LONGITUDE,station=GIS_STATION,AreaSwept_km2=AREA_SWEPT_VARIABLE)
+save(haul_join_key,file="data/haul_join_key.Rdata")
+
 #==Massage survey data into something more friendly
 #==(if you have not done this before, rbind() is probably what you'd start with...don't! it takes forever.
 #==making a list of lists then applying rbind() at the end is much faster)
@@ -121,28 +128,29 @@ if(aintdone==1)
 }
 
 #==Load the opilio data
-load("longform_opilio.Rdata")
+load("data/longform_opilio.Rdata")
 
 #==manipulate opi_dat to produce aggregate time series, then produce spatial datasets for VAST 
 #==with the appropriate categories
-library(dplyr)
 
 # calculate the average densities for aggregate time series
 # mature male biomass
 MMB<- opi_dat[opi_dat$units=="kilos" & opi_dat$Sex=="Male" & opi_dat$Maturity=="Mature",] %>%
   group_by(Year) %>%
-  summarise(MMB = mean(value*AreaSwept_km2,na.rm=T),
-            MMBsd = sd(value*AreaSwept_km2,na.rm=T))
+  summarise(MMB = mean(value/AreaSwept_km2,na.rm=T),
+            MMBsd = sd(value/AreaSwept_km2,na.rm=T))
 
+# mature female biomass
 MFB<- opi_dat[opi_dat$units=="kilos" & opi_dat$Sex=="Female" & opi_dat$Maturity=="Mature",] %>%
   group_by(Year) %>%
-  summarise(MFB = mean(value*AreaSwept_km2,na.rm=T),
-            MFBsd = sd(value*AreaSwept_km2,na.rm=T))
+  summarise(MFB = mean(value/AreaSwept_km2,na.rm=T),
+            MFBsd = sd(value/AreaSwept_km2,na.rm=T))
 
+# recruits
 rec<- opi_dat[opi_dat$units=="kilos" & opi_dat$Sex=="Male" & opi_dat$Size<38,] %>%
   group_by(Year) %>%
-  summarise(rec = mean(value*AreaSwept_km2,na.rm=T),
-            recsd = sd(value*AreaSwept_km2,na.rm=T))
+  summarise(rec = mean(value/AreaSwept_km2,na.rm=T),
+            recsd = sd(value/AreaSwept_km2,na.rm=T))
 
 #==these need lognormal CIs put around them
 par(mfrow=c(3,1),mar=c(.1,.1,.1,.1),oma=c(4,4,1,1))

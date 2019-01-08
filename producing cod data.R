@@ -1,0 +1,82 @@
+# Compile cod data
+library(tidyverse)
+library(here)
+
+here <- here::here()
+
+cod_dat_raw <- read_csv(here("data","cod.csv"),col_types='ciiiiiiiddddiiddccciddccddiccddiic')
+
+# figure theme
+plot_theme <-   theme_minimal()+
+  theme(text=element_text(family="sans",size=12,color="black"),
+        legend.text = element_text(size=14),
+        axis.title=element_text(family="sans",size=14,color="black"),
+        axis.text=element_text(family="sans",size=8,color="black"),
+        panel.grid.major = element_line(color="gray50",linetype=3))
+theme_set(plot_theme)
+
+# remove unnecessary columns and rename
+cod_dat <- cod_dat_raw %>%
+  select(Year,`Haul Join ID`,`Starting Latitude (dd)`,`Starting Longitude (dd)`,`Ending Latitude (dd)`,`Ending Longitude (dd)`, Stratum,
+         `Satisfactory Gear Performance`,`Bottom Depth`,`Weight (kg)`,`Number of Fish`) %>%
+  rename(hauljoin=`Haul Join ID`,startlat=`Starting Latitude (dd)`,startlon=`Starting Longitude (dd)`,
+          endlat=`Ending Latitude (dd)`,endlon=`Ending Longitude (dd)`,gear_satisfactory=`Satisfactory Gear Performance`,depth=`Bottom Depth`,
+          weight=`Weight (kg)`,number=`Number of Fish`
+          )
+
+
+# Join appropriate GIS stations (cross-referenced from snow crab data)
+load('data/haul_join_key.Rdata')
+
+cod_dat <- cod_dat %>% 
+  left_join(haul_join_key,by=c("hauljoin"="HAULJOIN"))
+
+# Aggregate by station and year
+cod_dat_clean <- cod_dat %>%
+  select(-hauljoin) %>%
+  
+  #remove all data with no station ID (HAVE TO DEAL WITH THIS LATER)
+  filter(!is.na(station)) %>%
+  select(station,Year,AreaSwept_km2,midlon,midlat,weight,number) %>%
+  
+  #density in numbers and weight
+  mutate(dens_weight=weight/AreaSwept_km2,dens_num=number/AreaSwept_km2)
+
+save(cod_dat_clean,file="data/cod_dat_clean.Rdata")
+
+# plot total biomass over time
+
+cod_by_yr <-cod_dat_clean %>%
+  group_by(Year) %>%
+  summarise(n_obs=n(),
+            num=mean(dens_num,na.rm = T),
+            num_sd=sd(dens_num,na.rm = T),
+            weight=mean(dens_weight,na.rm=T),
+            weight_sd=sd(dens_weight,na.rm=T)) %>%
+  ungroup()
+
+weight_by_yr_plot <-cod_by_yr %>%
+  ggplot(aes(Year,weight))+
+  geom_line()+
+  geom_point()+
+  labs(x='year',y='weight (kg/km2)')
+num_by_yr_plot <-cod_by_yr %>%
+  ggplot(aes(Year,num))+
+  geom_line(col='blue')+
+  geom_point(col='blue')+
+  labs(x='year',y='density (number/km2)')
+
+library(gridExtra)
+
+# compare visually to assessment data
+assessment_abundance <- read_csv(here("data","assessment_tot_abun.csv"),col_types = 'dddddd') %>%
+  ggplot(aes(Year,Estimate))+
+  geom_point(col='darkgreen')+geom_line(col='darkgreen')+
+  labs(x='year',y='Abundance (1000s fish)')+
+  theme(panel.border = element_rect(fill=NA,color="darkgreen",size=2))
+
+
+grid.arrange(weight_by_yr_plot,num_by_yr_plot,assessment_abundance)
+
+#size composition (from assessment)
+sizecomp <- read_csv('data/assessment_size_comp.csv')%>% gather(cm,prop,-Year,-N)
