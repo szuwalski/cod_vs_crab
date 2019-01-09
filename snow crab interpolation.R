@@ -39,7 +39,7 @@ dat.ch <- st_convex_hull(st_union(dat.sf))
 
 #raster
 r <- raster(dat.sp)
-res(r) <- 1000 #1 km
+res(r) <- 10000 #1 km
 
 #interpolate using inverse distance weighting
 idm<-gstat(formula=density_weight~1,locations=dat.sp)
@@ -52,8 +52,9 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
   st_transform(3571)
 
 bbox <- st_bbox(dat.sf)
+bbox <- bbox*c(0.9,1.1,1.1,0.9) #expand by 10%
 ggplot()+
-  geom_raster(data=dat.idw,aes(x,y,fill=var1.pred/1000),na.rm=T,alpha=0.8)+
+  geom_raster(data=dat.idw,aes(x,y,fill=var1.pred/1000),na.rm=T,alpha=0.8,interpolate=TRUE)+
   geom_sf(data=ak,fill='gray80')+
   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
   # gplot(dat.idw)+
@@ -64,7 +65,7 @@ ggplot()+
 ## Loop and create gif
 
 ## function to create a map like the above
-interpolate_data <- function(df,yr,sex,maturity,scalelimits,save.plot=TRUE) {
+interpolate_data <- function(df,yr,sex,maturity) {
   #subset data
   dat <- df %>% 
     filter(Year==yr,Sex==sex,Maturity==maturity) %>% 
@@ -81,25 +82,26 @@ interpolate_data <- function(df,yr,sex,maturity,scalelimits,save.plot=TRUE) {
   idm<-gstat(formula=density_weight~1,locations=dat.sp)
   dat.idw <- interpolate(r,idm) %>% 
     mask(as_Spatial(dat.ch)) %>% 
-    as.data.frame(xy=TRUE)
+    as.data.frame(xy=TRUE) %>% 
+    mutate(year=yr)
   
-  plot.title <- paste0(maturity," ",sex,"s, ",yr)
-  
-  out<-ggplot()+
-    geom_raster(data=dat.idw,aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8)+
-    geom_sf(data=ak,fill='gray80')+
-    # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
-    # gplot(dat.idw)+
-    xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
-    labs(x='',y='',fill='Density\n(1000s MT/km2)',title=plot.title)+
-    scale_fill_viridis(na.value=NA,option="C",limits=scalelimits)
-  
-  if(save.plot) {
-    suppressMessages(ggsave(plot=out,filename=paste0("plots/",plot.title,".png")))
-    print(paste(plot.title,"saved!"))
-    }
-  
-  out
+  # plot.title <- paste0(maturity," ",sex,"s, ",yr)
+  # 
+  # out<-ggplot()+
+  #   geom_raster(data=dat.idw,aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8)+
+  #   geom_sf(data=ak,fill='gray80')+
+  #   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
+  #   # gplot(dat.idw)+
+  #   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  #   labs(x='',y='',fill='Density\n(1000s MT/km2)',title=plot.title)+
+  #   scale_fill_viridis(na.value=NA,option="C",limits=scalelimits)
+  # 
+  # if(save.plot) {
+  #   suppressMessages(ggsave(plot=out,filename=paste0("plots/",plot.title,".png")))
+  #   print(paste(plot.title,"saved!"))
+  #   }
+  # 
+  dat.idw
 }
 
 # appropriate scale limits for different categories
@@ -111,21 +113,77 @@ interpolate_data <- function(df,yr,sex,maturity,scalelimits,save.plot=TRUE) {
 
 ### Calculate and save plots (takes a long time)
 # For mature males
-walk(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Male",maturity="Mature",scalelimits=c(0,10),save.plot=TRUE)
-})
+purrr::map(1982:2017, ~{
+  interpolate_data(df=opi_dat,yr=.x,sex="Male",maturity="Mature")
+}) %>% bind_rows() -> mm.interpolated
 # For mature females
-walk(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Female",maturity="Mature",scalelimits=c(0,25),save.plot=TRUE)
-})
+purrr::map(1982:2017, ~{
+  interpolate_data(df=opi_dat,yr=.x,sex="Female",maturity="Mature")
+}) %>% bind_rows() -> mf.interpolated
 # For immature males
-walk(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Male",maturity="Immature",scalelimits=c(0,10),save.plot=TRUE)
-})
+purrr::map(1982:2017, ~{
+  interpolate_data(df=opi_dat,yr=.x,sex="Male",maturity="Immature")
+}) %>% bind_rows() -> im.interpolated
 # For immature females
-walk(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Female",maturity="Immature",scalelimits=c(0,10),save.plot=TRUE)
-})
+purrr::map(1982:2017, ~{
+  interpolate_data(df=opi_dat,yr=.x,sex="Female",maturity="Immature")
+}) %>% bind_rows() -> if.interpolated
 
-## With gganimate-- we'll need a different function
+## With gganimate
+library(gganimate)
+mm.gif<-mm.interpolated %>% 
+  ggplot()+
+    geom_raster(aes(x,y,fill=var1.pred,frame=year),na.rm=T,alpha=0.8,interpolate = TRUE)+
+    geom_sf(data=ak,fill='gray80')+
+    xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+    labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Mature Males, {frame_time}')+
+    scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+    theme(plot.title = element_text(size=16))+
+  
+    transition_time(year)
+
+animate(mm.gif,fps=4,width=800,height=600)
+anim_save(filename="plots/gifs/mature_males.gif")
+
+mf.gif<-mf.interpolated %>% 
+  ggplot()+
+  geom_raster(aes(x,y,fill=var1.pred,frame=year),na.rm=T,alpha=0.8,interpolate = TRUE)+
+  geom_sf(data=ak,fill='gray80')+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Mature Females, {frame_time}')+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+  theme(plot.title = element_text(size=16))+
+  
+  transition_time(year)
+
+animate(mf.gif,fps=4,width=800,height=600)
+anim_save(filename="plots/gifs/mature_females.gif")
+
+im.gif<-im.interpolated %>% 
+  ggplot()+
+  geom_raster(aes(x,y,fill=var1.pred,frame=year),na.rm=T,alpha=0.8,interpolate = TRUE)+
+  geom_sf(data=ak,fill='gray80')+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Immature Males, {frame_time}')+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+  theme(plot.title = element_text(size=16))+
+  
+  transition_time(year)
+
+animate(im.gif,fps=4,width=800,height=600)
+anim_save(filename="plots/gifs/immature_males.gif")
+
+if.gif<-if.interpolated %>% 
+  ggplot()+
+  geom_raster(aes(x,y,fill=var1.pred,frame=year),na.rm=T,alpha=0.8,interpolate = TRUE)+
+  geom_sf(data=ak,fill='gray80')+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Immature Females, {frame_time}')+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+  theme(plot.title = element_text(size=16))+
+  
+  transition_time(year)
+
+animate(if.gif,fps=4,width=800,height=600)
+anim_save(filename="plots/gifs/immature_females.gif")
 
