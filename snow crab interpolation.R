@@ -1,4 +1,4 @@
-# Kriging, snow crab data
+# Interpolation, snow crab data
 library(tidyverse)
 library(gstat)
 library(sf)
