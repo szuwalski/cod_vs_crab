@@ -1,0 +1,102 @@
+# Temperature interpolation
+# Based on NBT in the NMFS Summer Trawl survey
+# Interpolation, snow crab data
+library(raster)
+library(rasterVis)
+library(tidyverse)
+library(gstat)
+library(sf)
+library(rgdal)
+library(viridis)
+
+select <- dplyr::select()
+
+# figure theme
+plot_theme <-   theme_minimal()+
+  theme(text=element_text(family="sans",size=12,color="black"),
+        legend.text = element_text(size=14),
+        axis.title=element_text(family="sans",size=14,color="black"),
+        # axis.text=element_blank(),
+        axis.text=element_text(family="sans",size=8,color="black"),
+        panel.grid.major = element_line(color="gray50",linetype=3))
+theme_set(plot_theme)
+
+# import data
+load('data/longform_opilio.Rdata')
+
+nbt_dat <- opi_dat %>% 
+  select(Year,Lat,Lon,Temp) %>% 
+  distinct() %>% 
+  filter(!is.na(Temp))
+
+# convert to simple features (spatial points) object
+# transform to a good Bering Sea projection (EPSG code 3571, Lambert azimuthal equal-area)
+dat.sf <- st_as_sf(nbt_dat,coords=c('Lon','Lat'),crs=4326) %>% st_transform(3571) 
+dat.sp <- dat.sf %>% as_Spatial()
+dat.ch <- st_convex_hull(st_union(dat.sf))
+
+#raster
+r <- raster(dat.sp)
+res(r) <- 10000 #1 km
+
+# state outline
+ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>% 
+  st_union() %>% 
+  st_transform(3571)
+
+bbox <- st_bbox(dat.sf)
+bbox <- bbox*c(0.9,1.1,1.1,0.9) #expand by 10%
+
+# # Test plot
+# ggplot()+
+#   geom_raster(data=dat.idw,aes(x,y,fill=var1.pred/1000),na.rm=T,alpha=0.8,interpolate=TRUE)+
+#   geom_sf(data=ak,fill='gray80')+
+#   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
+#   # gplot(dat.idw)+
+#   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+#   labs(x='',y='',fill='Density\n(MT/km2)',title="Test: Cod distribution 1982 interpolated")+
+#   scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))
+
+## function to create a map like the above
+interpolate_data <- function(df,yr) {
+  #subset data
+  dat <- df %>% 
+    filter(Year==yr)
+  
+  # convert to simple features (spatial points) object
+  dat.sf <- st_as_sf(dat,coords=c('Lon','Lat'),crs=4326) %>% st_transform(3571)
+  dat.sp <- dat.sf %>% as_Spatial()
+  dat.ch <- st_convex_hull(st_union(dat.sf))
+  
+  #interpolate using inverse distance weighting
+  idm<-gstat(formula=Temp~1,locations=dat.sp)
+  dat.idw <- interpolate(r,idm) %>% 
+    mask(as_Spatial(dat.ch)) %>% 
+    as.data.frame(xy=TRUE) %>% 
+    mutate(year=yr)
+  
+  dat.idw
+}
+
+### Calculate and save plots (takes a long time)
+# For mature males
+purrr::map(1982:2017, ~{
+  interpolate_data(df=nbt_dat,yr=.x)
+}) %>% bind_rows() -> nbt.interpolated
+
+
+## With gganimate
+library(gganimate)
+nbt.gif<-nbt.interpolated %>% 
+  ggplot()+
+  geom_raster(aes(x,y,fill=var1.pred,frame=year),na.rm=T,alpha=0.8,interpolate = TRUE)+
+  geom_sf(data=ak,fill='gray80')+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(x='',y='',fill='Near Bottom\nTemperature (deg C)',title='Temperature, {frame_time}')+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(-2,10))+
+  theme(plot.title = element_text(size=16))+
+  
+  transition_time(year)
+
+animate(nbt.gif,fps=4,width=800,height=600)
+anim_save(filename="plots/gifs/nbt.gif")
