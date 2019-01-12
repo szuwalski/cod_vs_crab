@@ -18,17 +18,17 @@ plot_theme <-   theme_minimal()+
 theme_set(plot_theme)
 
 # import data
-load('data/longform_opilio.Rdata')
+load('data/longform_opilio2.Rdata')
 
 # for now, let's start with one year of mature male crabs, collapsing all size classes
-dat <- opi_dat %>% filter(Year==1982,Sex=='Male',Maturity=='Mature') %>% 
-  group_by(Year,Lat,Lon) %>% 
-  summarise(density_weight=sum(value/AreaSwept_km2,na.rm=T)) %>% 
+dat <- opi_dat_long %>% filter(year==1996,sex=='Female',maturity=='Immature') %>% 
+  group_by(year,lat,lon) %>% 
+  summarise(density_weight=sum(value/area_km2/1e6,na.rm=T)) %>% 
   ungroup()
-yr <- "1982"
+yr <- "1996"
 
 # convert to simple features (spatial points) object
-dat.sf <- st_as_sf(dat,coords=c('Lon','Lat'),crs=4326) %>% st_transform(3571)
+dat.sf <- st_as_sf(dat,coords=c('lon','lat'),crs=4326) %>% st_transform(3571)
 dat.sp <- dat.sf %>% as_Spatial()
 dat.ch <- st_convex_hull(st_union(dat.sf))
 # 
@@ -54,7 +54,7 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
 bbox <- st_bbox(dat.sf)
 bbox <- bbox*c(0.9,1.1,1.1,0.9) #expand by 10%
 ggplot()+
-  geom_raster(data=dat.idw,aes(x,y,fill=var1.pred/1000),na.rm=T,alpha=0.8,interpolate=TRUE)+
+  geom_raster(data=dat.idw,aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8,interpolate=TRUE)+
   geom_sf(data=ak,fill='gray80')+
   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
   # gplot(dat.idw)+
@@ -68,13 +68,13 @@ ggplot()+
 interpolate_data <- function(df,yr,sex,maturity) {
   #subset data
   dat <- df %>% 
-    filter(Year==yr,Sex==sex,Maturity==maturity) %>% 
-    group_by(Year,Lat,Lon) %>% 
-    summarise(density_weight=sum(value/AreaSwept_km2/1e6,na.rm=T)) %>% 
+    filter(year==yr,sex==sex,maturity==maturity) %>% 
+    group_by(year,lat,lon) %>% 
+    summarise(density_weight=sum(value/area_km2/1e6,na.rm=T)) %>% 
     ungroup()
   
   # convert to simple features (spatial points) object
-  dat.sf <- st_as_sf(dat,coords=c('Lon','Lat'),crs=4326) %>% st_transform(3571)
+  dat.sf <- st_as_sf(dat,coords=c('lon','lat'),crs=4326) %>% st_transform(3571)
   dat.sp <- dat.sf %>% as_Spatial()
   dat.ch <- st_convex_hull(st_union(dat.sf))
   
@@ -114,19 +114,19 @@ interpolate_data <- function(df,yr,sex,maturity) {
 ### Calculate and save plots (takes a long time)
 # For mature males
 purrr::map(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Male",maturity="Mature")
+  interpolate_data(df=opi_dat_long,yr=.x,sex="Male",maturity="Mature")
 }) %>% bind_rows() -> mm.interpolated
 # For mature females
 purrr::map(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Female",maturity="Mature")
+  interpolate_data(df=opi_dat_long,yr=.x,sex="Female",maturity="Mature")
 }) %>% bind_rows() -> mf.interpolated
 # For immature males
 purrr::map(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Male",maturity="Immature")
+  interpolate_data(df=opi_dat_long,yr=.x,sex="Male",maturity="Immature")
 }) %>% bind_rows() -> im.interpolated
 # For immature females
 purrr::map(1982:2017, ~{
-  interpolate_data(df=opi_dat,yr=.x,sex="Female",maturity="Immature")
+  interpolate_data(df=opi_dat_long,yr=.x,sex="Female",maturity="Immature")
 }) %>% bind_rows() -> if.interpolated
 
 ## With gganimate
