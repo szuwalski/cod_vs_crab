@@ -30,7 +30,14 @@ yr <- "1996"
 # convert to simple features (spatial points) object
 dat.sf <- st_as_sf(dat,coords=c('lon','lat'),crs=4326) %>% st_transform(3571)
 dat.sp <- dat.sf %>% as_Spatial()
-dat.ch <- st_convex_hull(st_union(dat.sf))
+
+# convex hull of entire survey area
+
+dat.ch <- opi_dat_long %>% distinct(station,lat,lon) %>% 
+  st_as_sf(coords=c('lon','lat'),crs=4326) %>% 
+  st_transform(3571) %>% 
+  st_union() %>% 
+  st_convex_hull()
 # 
 # # so we know what we're dealing with
 # dat.sf %>%
@@ -38,7 +45,7 @@ dat.ch <- st_convex_hull(st_union(dat.sf))
 #   geom_sf(aes(size=log(density_weight)),alpha=0.3)
 
 #raster
-r <- raster(dat.sp)
+r <- raster(dat.ch %>% as_Spatial())
 res(r) <- 10000 #1 km
 
 #interpolate using inverse distance weighting
@@ -51,7 +58,7 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
   st_union() %>% 
   st_transform(3571)
 
-bbox <- st_bbox(dat.sf)
+bbox <- st_bbox(dat.ch)
 bbox <- bbox*c(0.9,1.1,1.1,0.9) #expand by 10%
 ggplot()+
   geom_raster(data=dat.idw,aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8,interpolate=TRUE)+
@@ -76,31 +83,16 @@ interpolate_data <- function(df,yr,sex,maturity) {
   # convert to simple features (spatial points) object
   dat.sf <- st_as_sf(dat,coords=c('lon','lat'),crs=4326) %>% st_transform(3571)
   dat.sp <- dat.sf %>% as_Spatial()
-  dat.ch <- st_convex_hull(st_union(dat.sf))
   
   #interpolate using inverse distance weighting
   idm<-gstat(formula=density_weight~1,locations=dat.sp)
   dat.idw <- interpolate(r,idm) %>% 
+    
+    # mask with convex hull from above
     mask(as_Spatial(dat.ch)) %>% 
     as.data.frame(xy=TRUE) %>% 
     mutate(year=yr)
   
-  # plot.title <- paste0(maturity," ",sex,"s, ",yr)
-  # 
-  # out<-ggplot()+
-  #   geom_raster(data=dat.idw,aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8)+
-  #   geom_sf(data=ak,fill='gray80')+
-  #   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
-  #   # gplot(dat.idw)+
-  #   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
-  #   labs(x='',y='',fill='Density\n(1000s MT/km2)',title=plot.title)+
-  #   scale_fill_viridis(na.value=NA,option="C",limits=scalelimits)
-  # 
-  # if(save.plot) {
-  #   suppressMessages(ggsave(plot=out,filename=paste0("plots/",plot.title,".png")))
-  #   print(paste(plot.title,"saved!"))
-  #   }
-  # 
   dat.idw
 }
 
@@ -137,12 +129,22 @@ mm.gif<-mm.interpolated %>%
     geom_sf(data=ak,fill='gray80')+
     xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
     labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Mature Males, {frame_time}')+
-    scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+    scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))+
     theme(plot.title = element_text(size=16))+
   
     transition_time(year)
 
-animate(mm.gif,fps=4,width=800,height=600)
+# mm.interpolated %>% filter(year==1991) %>% 
+# ggplot()+
+#   geom_raster(aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8,interpolate=TRUE)+
+#   geom_sf(data=ak,fill='gray80')+
+#   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>%
+#   # gplot(dat.idw)+
+#   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+#   labs(x='',y='',fill='Density\n(1000s MT/km2)',title=yr)+
+#   scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))
+
+animate(mm.gif,nframes=99,fps=3,width=800,height=600)
 anim_save(filename="plots/gifs/mature_males.gif")
 
 mf.gif<-mf.interpolated %>% 
@@ -151,12 +153,12 @@ mf.gif<-mf.interpolated %>%
   geom_sf(data=ak,fill='gray80')+
   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
   labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Mature Females, {frame_time}')+
-  scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))+
   theme(plot.title = element_text(size=16))+
   
   transition_time(year)
 
-animate(mf.gif,fps=4,width=800,height=600)
+animate(mf.gif,nframes=99,fps=3,width=800,height=600)
 anim_save(filename="plots/gifs/mature_females.gif")
 
 im.gif<-im.interpolated %>% 
@@ -165,7 +167,7 @@ im.gif<-im.interpolated %>%
   geom_sf(data=ak,fill='gray80')+
   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
   labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Immature Males, {frame_time}')+
-  scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))+
   theme(plot.title = element_text(size=16))+
   
   transition_time(year)
@@ -179,7 +181,7 @@ if.gif<-if.interpolated %>%
   geom_sf(data=ak,fill='gray80')+
   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
   labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Immature Females, {frame_time}')+
-  scale_fill_viridis(na.value=NA,option="C",limits=c(0,10))+
+  scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))+
   theme(plot.title = element_text(size=16))+
   
   transition_time(year)

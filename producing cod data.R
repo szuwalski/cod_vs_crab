@@ -79,4 +79,104 @@ assessment_abundance <- read_csv(here("data","assessment_tot_abun.csv"),col_type
 grid.arrange(weight_by_yr_plot,num_by_yr_plot,assessment_abundance)
 
 #size composition (from assessment)
-sizecomp <- read_csv('data/assessment_size_comp.csv')%>% gather(cm,prop,-Year,-N)
+sizecomp <- read_csv('data/assessment_size_comp.csv') %>% 
+  gather(cm,prop,-Year,-N) %>%
+  mutate(prop=prop/N) %>% 
+  filter(cm!="120+") %>% 
+  mutate(cm=as.numeric(cm),decade=case_when(
+    Year<1990 ~ "1980s",
+    Year<2000&Year>1989 ~ "1990s",
+    Year<2010&Year>1999 ~ "2000s",
+    Year>2009 ~ "2010s"
+  ))
+
+#match to bins
+# binsize=5
+# sizes		 <-seq(27.5,132.5,binsize)
+# # size bin matching key
+# sizesdf <- tibble(dn=seq(25,130,5),up=seq(30,135,5),size=sizes)
+
+library(ggridges)
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year<1990) %>% 
+  ggplot(aes(x=cm,y=factor(Year),height=prop))+
+  geom_density_ridges(stat='identity',fill='blue',alpha=0.5,scale=2,color='black')+
+  labs(x="Length",y="Year",title="Size Composition, 1980s")+
+  xlim(0,100)
+
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year<2000,Year>1989) %>% 
+  ggplot(aes(x=cm,y=factor(Year),height=prop))+
+  geom_density_ridges(stat='identity',fill='blue',alpha=0.5,scale=2,color='black')+
+  labs(x="Length",y="Year",title="Size Composition, 1990s")+
+  xlim(0,100)
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year<2010,Year>1999) %>% 
+  ggplot(aes(x=cm,y=factor(Year),height=prop))+
+  geom_density_ridges(stat='identity',fill='blue',alpha=0.5,scale=2,color='black')+
+  labs(x="Length",y="Year",title="Size Composition, 2000s")+
+  xlim(0,100)
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year>2009) %>% 
+  ggplot(aes(x=cm,y=factor(Year),height=prop))+
+  geom_density_ridges(stat='identity',fill='blue',alpha=0.5,scale=2,color='black')+
+  labs(x="Length",y="Year",title="Size Composition, 2010s")+
+  xlim(0,100)
+#all
+sizecomp_density_all<-sizecomp %>% 
+  ungroup() %>% 
+  ggplot(aes(x=cm,y=factor(Year),height=prop))+
+  geom_density_ridges(stat='identity',fill='blue',alpha=0.5,scale=2,color='black')+
+  labs(x="Length",y="Year",title="Size Composition")+
+  xlim(0,100)+
+  facet_wrap(~decade,scales='free_y')
+ggsave(plot=sizecomp_density_all,"plots/cod_size_comp_density.png",height=8,width=10)
+
+# bubble?
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year<1990) %>% 
+  ggplot(aes(x=cm,y=factor(Year),size=prop))+
+  scale_size_continuous(range=c(1,20))+
+  geom_point(alpha=0.3,color='blue')+
+  labs(x="Length",y="Year",title="Size Composition, 1980s")+
+  xlim(0,100)
+
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year<2000,Year>1989) %>% 
+  ggplot(aes(x=cm,y=factor(Year),size=prop))+
+  scale_size_continuous(range=c(1,20))+
+  geom_point(alpha=0.3,color='blue')+
+  labs(x="Length",y="Year",title="Size Composition, 1990s")+
+  xlim(0,100)
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year<2010,Year>1999) %>% 
+  ggplot(aes(x=cm,y=factor(Year),size=prop))+
+  scale_size_continuous(range=c(1,20))+
+  geom_point(alpha=0.3,color='blue')+
+  labs(x="Length",y="Year",title="Size Composition, 2000s")+
+  xlim(0,100)
+sizecomp %>% 
+  ungroup() %>% 
+  filter(Year>2009) %>% 
+  ggplot(aes(x=cm,y=factor(Year),size=prop*100))+
+  scale_size_continuous(range=c(1,20))+
+  geom_point(alpha=0.3,color='blue')+
+  labs(x="Length",y="Year",title="Size Composition, 2010s",size="Percent")+
+  xlim(0,100)
+#all
+sizecomp_bubble_all<-sizecomp %>% 
+  ungroup() %>% 
+  ggplot(aes(x=cm,y=factor(Year),size=prop*100))+
+  scale_size_continuous(range=c(1,20))+
+  geom_point(alpha=0.3,color='blue')+
+  labs(x="Length",y="Year",title="Size Composition",size="Percent")+
+  xlim(0,100)+
+  facet_wrap(~decade,scales='free_y')
+ggsave(plot=sizecomp_bubble_all,"plots/cod_size_comp_bubble.png",height=8,width=10)
