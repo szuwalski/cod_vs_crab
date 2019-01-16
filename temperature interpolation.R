@@ -3,13 +3,13 @@
 # Interpolation, snow crab data
 library(raster)
 library(rasterVis)
+library(rgdal)
 library(tidyverse)
 library(gstat)
 library(sf)
-library(rgdal)
 library(viridis)
 
-select <- dplyr::select()
+select <- dplyr::select
 
 # figure theme
 plot_theme <-   theme_minimal()+
@@ -22,21 +22,24 @@ plot_theme <-   theme_minimal()+
 theme_set(plot_theme)
 
 # import data
-load('data/longform_opilio.Rdata')
+load('data/longform_opilio2.Rdata')
 
-nbt_dat <- opi_dat %>% 
-  select(Year,Lat,Lon,Temp) %>% 
+nbt_dat <- opi_dat_long %>% 
+  select(year,lat,lon,temp) %>% 
   distinct() %>% 
-  filter(!is.na(Temp))
+  filter(!is.na(temp))
 
 # convert to simple features (spatial points) object
 # transform to a good Bering Sea projection (EPSG code 3571, Lambert azimuthal equal-area)
-dat.sf <- st_as_sf(nbt_dat,coords=c('Lon','Lat'),crs=4326) %>% st_transform(3571) 
+dat.sf <- st_as_sf(nbt_dat,coords=c('lon','lat'),crs=4326) %>% st_transform(3571) 
 dat.sp <- dat.sf %>% as_Spatial()
-dat.ch <- st_convex_hull(st_union(dat.sf))
+
+# convex hull of entire survey area
+dat.ch <- st_convex_hull(dat.sf %>% st_union())
+
 
 #raster
-r <- raster(dat.sp)
+r <- raster(dat.ch %>% as_Spatial())
 res(r) <- 10000 #1 km
 
 # state outline
@@ -44,32 +47,37 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
   st_union() %>% 
   st_transform(3571)
 
-bbox <- st_bbox(dat.sf)
+bbox <- st_bbox(dat.ch)
 bbox <- bbox*c(0.9,1.1,1.1,0.9) #expand by 10%
 
+#interpolate using inverse distance weighting
+idm<-gstat(formula=temp~1,locations=dat.sf %>% filter(year==1995) %>% as_Spatial())
+dat.idw <- interpolate(r,idm) %>% 
+  mask(as_Spatial(dat.ch)) %>% 
+  as.data.frame(xy=TRUE) %>% 
+  mutate(year=1995)
 # # Test plot
-# ggplot()+
-#   geom_raster(data=dat.idw,aes(x,y,fill=var1.pred/1000),na.rm=T,alpha=0.8,interpolate=TRUE)+
-#   geom_sf(data=ak,fill='gray80')+
-#   # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>% 
-#   # gplot(dat.idw)+
-#   xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
-#   labs(x='',y='',fill='Density\n(MT/km2)',title="Test: Cod distribution 1982 interpolated")+
-#   scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))
+ggplot()+
+  geom_raster(data=dat.idw,aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8,interpolate=TRUE)+
+  geom_sf(data=ak,fill='gray80')+
+  # projectRaster(crs="+proj=longlat +datum=WGS84 +no_defs") %>%
+  # gplot(dat.idw)+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(x='',y='',fill='Temperature',title="Test:NBT")+
+  scale_fill_viridis(na.value=NA,option="C")
 
 ## function to create a map like the above
 interpolate_data <- function(df,yr) {
   #subset data
   dat <- df %>% 
-    filter(Year==yr)
+    filter(year==yr)
   
   # convert to simple features (spatial points) object
-  dat.sf <- st_as_sf(dat,coords=c('Lon','Lat'),crs=4326) %>% st_transform(3571)
+  dat.sf <- st_as_sf(dat,coords=c('lon','lat'),crs=4326) %>% st_transform(3571)
   dat.sp <- dat.sf %>% as_Spatial()
-  dat.ch <- st_convex_hull(st_union(dat.sf))
   
   #interpolate using inverse distance weighting
-  idm<-gstat(formula=Temp~1,locations=dat.sp)
+  idm<-gstat(formula=temp~1,locations=dat.sp)
   dat.idw <- interpolate(r,idm) %>% 
     mask(as_Spatial(dat.ch)) %>% 
     as.data.frame(xy=TRUE) %>% 
@@ -98,5 +106,21 @@ nbt.gif<-nbt.interpolated %>%
   
   transition_time(year)
 
-animate(nbt.gif,fps=4,width=800,height=600)
+animate(nbt.gif,fps=1,nframes=length(unique(nbt_dat$year)),width=800,height=600)
 anim_save(filename="plots/gifs/nbt.gif")
+
+# With a time series by depth band ()
+nbt_ts <- opi_dat_long %>% 
+  select(year,lat,lon,temp,depth) %>% 
+  distinct() %>% 
+  filter(!is.na(temp),!is.na(depth)) %>% 
+  mutate(domain=case_when(
+    depth<50 ~ "inner",
+    depth>=50 & depth<100 ~ "middle",
+    depth>=100 ~ "outer"
+  )) %>% 
+  mutate(domain=factor(domain, levels=c("inner","middle","outer"))) %>% 
+  group_by(year,domain) %>% 
+  summarise(mean_temp=mean(temp,na.rm=T)) %>% 
+  ungroup()
+  

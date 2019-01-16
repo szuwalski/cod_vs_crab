@@ -125,7 +125,7 @@ purrr::map(1982:2017, ~{
 library(gganimate)
 mm.gif<-mm.interpolated %>% 
   ggplot()+
-    geom_raster(aes(x,y,fill=var1.pred,frame=year),na.rm=T,alpha=0.8,interpolate = TRUE)+
+    geom_raster(aes(x,y,fill=var1.pred),na.rm=T,alpha=0.8,interpolate = TRUE)+
     geom_sf(data=ak,fill='gray80')+
     xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
     labs(x='',y='',fill='Density\n(1000s MT/km2)',title='Mature Males, {frame_time}')+
@@ -144,7 +144,7 @@ mm.gif<-mm.interpolated %>%
 #   labs(x='',y='',fill='Density\n(1000s MT/km2)',title=yr)+
 #   scale_fill_viridis(na.value=NA,option="C",limits=c(0,25))
 
-animate(mm.gif,nframes=99,fps=3,width=800,height=600)
+animate(mm.gif,fps=1,nframes=length(unique(mm.interpolated$year)),width=800,height=600)
 anim_save(filename="plots/gifs/mature_males.gif")
 
 mf.gif<-mf.interpolated %>% 
@@ -158,7 +158,7 @@ mf.gif<-mf.interpolated %>%
   
   transition_time(year)
 
-animate(mf.gif,nframes=99,fps=3,width=800,height=600)
+animate(mf.gif,fps=1,nframes=length(unique(mm.interpolated$year)),width=800,height=600)
 anim_save(filename="plots/gifs/mature_females.gif")
 
 im.gif<-im.interpolated %>% 
@@ -172,7 +172,7 @@ im.gif<-im.interpolated %>%
   
   transition_time(year)
 
-animate(im.gif,fps=4,width=800,height=600)
+animate(im.gif,fps=1,nframes=length(unique(mm.interpolated$year)),width=800,height=600)
 anim_save(filename="plots/gifs/immature_males.gif")
 
 if.gif<-if.interpolated %>% 
@@ -186,6 +186,6 @@ if.gif<-if.interpolated %>%
   
   transition_time(year)
 
-animate(if.gif,fps=4,width=800,height=600)
+animate(if.gif,fps=1,nframes=length(unique(mm.interpolated$year)),width=800,height=600)
 anim_save(filename="plots/gifs/immature_females.gif")
 
