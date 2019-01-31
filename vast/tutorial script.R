@@ -6,7 +6,7 @@ library(TMB)
 library(VAST)
 
 #### Settings ####
-Version = "VAST_v2_5_0"
+Version = "VAST_v4_4_0"
 
 #spatial settings
 Method <- "Mesh"
@@ -34,7 +34,7 @@ Region = "Eastern_Bering_Sea"
 Species_set = c("Atheresthes stomias","Gadus chalcogrammus","Hippoglossoides elassodon")
 
 # save settings and data in a list
-DateFile = 'E:/vast/'
+DateFile = paste0(getwd(),'/vast/output/')
 dir.create(DateFile)
 Record = list(Version = Version, Method = Method, grid_size_km = grid_size_km,
               n_x = n_x, FieldConfig = FieldConfig, RhoConfig = RhoConfig,
@@ -77,7 +77,7 @@ Data_Geostat = cbind( Data_Geostat, "knot_i"=Spatial_List$knot_i)
 
 # in order to estimate params, build a list of data-inputs used for param estimation
 TmbData = Data_Fn("Version"=Version, 
-                  "FieldConfig"=FieldConfig, 
+                  "FieldConfig"=FieldConfig,
                   "OverdispersionConfig"=OverdispersionConfig, 
                   "RhoConfig"=RhoConfig, 
                   "ObsModel"=ObsModel, 
@@ -115,3 +115,51 @@ Opt = TMBhelper::Optimize( obj=Obj,
 Report = Obj$report()
 Save = list("Opt"=Opt, "Report"=Report, "ParHat"=Obj$env$parList(Opt$par), "TmbData"=TmbData)
 save(Save, file=paste0(DateFile,"Save.RData"))
+
+#### Visualize and Diagnose Model Outputs####
+load(paste0(DateFile,"Save.RData"))
+for(i in 1:length(Save)) assign(names(Save)[i], Save[[i]])
+# It is always good practice to conduct exploratory analysis of data.  Here, I visualize the spatial distribution of data.  
+# Spatio-temporal models involve the assumption that the probability of sampling a given location is statistically independent 
+# of the probability distribution for the response at that location.  
+# So if sampling "follows" changes in density, then the model is probably not appropriate!
+plot_data(Extrapolation_List=Extrapolation_List, Spatial_List=Spatial_List, Data_Geostat=Data_Geostat, PlotDir=DateFile )
+
+# Here I print the diagnostics generated during parameter estimation, and I confirm that 
+# (1) no parameter is hitting an upper or lower bound and 
+# (2) the final gradient for each fixed-effect is close to zero. 
+# For explanation of parameters, please see `?Data_Fn`.
+
+Opt$diagnostics[,c('Param','Lower','MLE','Upper','final_gradient')]
+
+## Encounter probability
+# we check whether observed encounter frequencies for either low or high probability samples 
+# are within the 95% predictive interval for predicted encounter probability
+Enc_prob = plot_encounter_diagnostic( Report=Report, Data_Geostat=Data_Geostat, DirName=DateFile)
+
+## Fit to residuals of catch-rates (Q-Q plot)
+Q = plot_quantile_diagnostic( TmbData=TmbData, Report=Report, FileName_PP=NULL,
+                              FileName_Phist=NULL, 
+                              FileName_QQ="Q-Q_plot", FileName_Qhist=NULL, DateFile=DateFile) 
+
+## finally we can visualize residuals on a map
+# Define years to plot and labels for each plotted year
+# Get region-specific settings for plots
+MapDetails_List = make_map_info( "Region"=Region, "NN_Extrap"=Spatial_List$PolygonList$NN_Extrap, "Extrapolation_List"=Extrapolation_List )
+# Decide which years to plot                                                   
+Year_Set = seq(min(Data_Geostat[,'Year']),max(Data_Geostat[,'Year']))
+Years2Include = which( Year_Set %in% sort(unique(Data_Geostat[,'Year'])))
+
+plot_residuals(Lat_i=Data_Geostat[,'Lat'], 
+               Lon_i=Data_Geostat[,'Lon'], 
+               TmbData=TmbData, 
+               Report=Report, 
+               Q=Q, 
+               savedir=DateFile, 
+               MappingDetails=MapDetails_List[["MappingDetails"]], 
+               PlotDF=MapDetails_List[["PlotDF"]],
+               MapSizeRatio=MapDetails_List[["MapSizeRatio"]], 
+               Xlim=MapDetails_List[["Xlim"]], 
+               Ylim=MapDetails_List[["Ylim"]], 
+               FileName=DateFile, Year_Set=Year_Set, Years2Include=Years2Include, Rotate=MapDetails_List[["Rotate"]], Cex=MapDetails_List[["Cex"]], Legend=MapDetails_List[["Legend"]], 
+               zone=MapDetails_List[["Zone"]], mar=c(0,0,2,0), oma=c(3.5,3.5,0,0), cex=1.8)
