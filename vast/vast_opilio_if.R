@@ -14,7 +14,7 @@ Method <- "Mesh"
 Aniso <- 1
 grid_size_km <- 50
 # number of 'knots'
-n_x <- 100
+n_x <- 300
 
 # whether to include spatial (omega) and s-t (epsilon) variation
 # for a univariate model, these are 0 ("turned off") or 1
@@ -182,7 +182,7 @@ plot_residuals(Lat_i=dat[,'Lat'],
                zone=MapDetails_List[["Zone"]], 
                mar=c(0,0,2,0), oma=c(3.5,3.5,0,0), cex=1.8)
 
-## range indices- center of gravity, kernel-area occupied, and effective-area occupied
+### range indices- center of gravity, kernel-area occupied, and effective-area occupied ###
 Sdreport <-TMB::sdreport(Obj)
 range_indices <-plot_range_index(Sdreport=Sdreport,
                  Report=Report,
@@ -195,13 +195,23 @@ library(viridis)
 plot_theme <-   theme_minimal()+
   theme(text=element_text(family="sans",size=12,color="black"),
         legend.text = element_text(size=14),
-        axis.title=element_text(family="sans",size=14,color="black"),
+        axis.title=element_text(family="sans",size=12,color="black"),
         # axis.text=element_blank(),
         axis.text=element_text(family="sans",size=10,color="black"),
         panel.grid.major = element_line(color="gray50",linetype=3))
 theme_set(plot_theme)
 
+# center of gravity, effective area occupied, and temperature
 cog <- range_indices$COG_Table
+effarea <- range_indices$EffectiveArea_Table %>% 
+  as_tibble()
+effarea_plot <- effarea %>% 
+  ggplot(aes(Year,EffectiveArea,ymin=EffectiveArea-SE,ymax=EffectiveArea+SE))+
+  geom_ribbon(alpha=0.5,fill='darkgreen')+
+  geom_line()+
+  scale_x_continuous(breaks=seq(1985,2015,by=5))+
+  labs(y="Area Occupied (1000s km2)")
+effarea_plot
 
 cog1d <-cog %>% as_tibble() %>% 
   mutate(direction=ifelse(m==1,"eastings","northings")) %>% 
@@ -212,8 +222,47 @@ cog_plot1d <- cog1d %>%
   geom_ribbon(aes(ymin=cog-se,ymax=cog+se),alpha=0.5,fill='red')+
   geom_line()+
   facet_wrap(~direction,scales='free_y',nrow=2)+
-  labs(y="Center of Gravity")
-cog_plot1d  
+  scale_x_continuous(breaks=seq(1985,2015,by=5))+
+  labs(y="Center of Gravity")+
+  theme(axis.text.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_text(margin = margin(t = 0, r = 25, b = 0, l = 0)))
+cog_plot1d
+
+# add temperature to this one, for the "middle" domain (the cold pool)
+temperature_dat <- opi_dat_long %>% 
+  select(year,lat,lon,temp,depth) %>% 
+  distinct() %>% 
+  filter(!is.na(temp),!is.na(depth)) %>% 
+  mutate(domain=case_when(
+    depth<50 ~ "inner",
+    depth>=50 & depth<100 ~ "middle",
+    depth>=100 ~ "outer"
+  )) %>% 
+  mutate(domain=factor(domain, levels=c("inner","middle","outer"))) %>% 
+  group_by(year,domain) %>% 
+  summarise(mean_temp=mean(temp,na.rm=T),sd_temp=sd(temp,na.rm=T)) %>% 
+  ungroup()
+
+# plot
+mid_domain_temp_plot <- temperature_dat %>% 
+  filter(domain=='middle') %>% 
+  ggplot(aes(year,mean_temp,ymin=mean_temp-sd_temp,ymax=mean_temp+sd_temp))+
+  geom_ribbon(alpha=0.5,fill='blue')+
+  geom_line()+
+  geom_hline(yintercept=0,linetype=2)+
+  scale_x_continuous(breaks=seq(1985,2015,by=5))+
+  labs(x='Year',y='Temp at 50-100m')+
+  theme(axis.text.y=element_blank(),
+        axis.title.y=element_text(margin = margin(t = 0, r = 25, b = 0, l = 0)))
+mid_domain_temp_plot
+
+# join center of gravity and temperature plots
+library(gridExtra)
+lay <- matrix(c(1,1,2,3),nrow=4)
+cog_and_temp_plot <- grid.arrange(cog_plot1d,mid_domain_temp_plot,effarea_plot,ncol=1,layout_matrix=lay)
+
+ggsave(plot=cog_and_temp_plot, file="vast/output/opilio_if/cog_temp_effarea.png",height=8,width=6)
 
 cog2d<-cog %>% as_tibble() %>% 
   mutate(m=factor(m)) %>% 
@@ -223,7 +272,7 @@ cog2d<-cog %>% as_tibble() %>%
   mutate(east_upper=east+east_se,east_lower=east-east_se,
          north_upper=north+north_se,north_lower=north-north_se)
 
-cog_plot2d <- cog %>% 
+cog_plot2d <- cog2d %>% 
   ggplot(aes(east,north,ymin=north_lower,ymax=north_upper,xmin=east_lower,xmax=east_upper,col=Year))+
   geom_pointrange()+
   geom_errorbarh()+
@@ -231,3 +280,17 @@ cog_plot2d <- cog %>%
   scale_color_viridis()+
   labs(x="eastings",y="northings")
 cog_plot2d
+ggsave(plot=cog_plot2d, file="vast/output/opilio_if/cog2d.png")
+
+# correlations
+cog_effarea_temp <- cog2d %>% 
+  left_join(temperature_dat,by=c('Year'='year')) %>% 
+  left_join(effarea,by='Year')
+
+# corrs between middle domain temperature and effective area/center of gravity
+library(GGally)
+cog_effarea_temp_corr_plot<-ggpairs(cog_effarea_temp,columns = c(2,4,11,13),
+        lower=list(continuous=wrap("smooth", colour="blue",alpha=0.8)),
+        diag=list(continuous=wrap("densityDiag",fill='red',alpha=0.5)),
+        columnLabels = c("East COG","North COG","Temperature","Eff Area"))
+ggsave(plot=cog_effarea_temp_corr_plot, file="vast/output/opilio_if/cog_effarea_temp_corr.png")

@@ -1,0 +1,34 @@
+$Version
+[1] "VAST_v4_4_0"
+
+$Method
+[1] "Mesh"
+
+$n_x
+[1] 200
+
+$FieldConfig
+  Omega1 Epsilon1   Omega2 Epsilon2 
+       2        2        2        2 
+
+$RhoConfig
+   Beta1    Beta2 Epsilon1 Epsilon2 
+       0        0        0        0 
+
+$OverdispersionConfig
+Eta1 Eta2 
+   0    0 
+
+$ObsModel
+[1] 2 1
+
+$Region
+[1] "Eastern_Bering_Sea"
+
+$Species_set
+[1] "Chionoecetes opilio" "Gadus macrocephalus"
+
+$strata.limits
+     STRATA
+1 All_areas
+
