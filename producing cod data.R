@@ -30,11 +30,13 @@ load('data/haul_join_key.Rdata')
 
 cod_dat <- cod_dat_rn %>% 
   full_join(haul_join_key,by=c("hauljoin","year")) %>% 
-  mutate(weight=coalesce(weight,0)) %>% 
+  # fill in zeroes for unrepresented hauls, and use 0.01 for area swept
+  mutate(weight=coalesce(weight,0),number=coalesce(number,0)) %>% 
+  rename(area_km2=AreaSwept_km2) %>% mutate(area_km2=coalesce(area_km2,0.01)) %>% 
   # for those hauls missing midlat/midlon, fill with startlat/startlon
   mutate(midlon=coalesce(midlon,startlon),midlat=coalesce(midlat,startlat)) %>% 
-  rename(area_km2=AreaSwept_km2) %>% 
-  filter(year>1981)
+
+  filter(year>1981,year<2018)
   
 print(paste("The number of missing latitudes is",sum(is.na(cod_dat$midlat))))
 print(paste("The number of missing longitudes is",sum(is.na(cod_dat$midlon))))
