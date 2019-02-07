@@ -16,7 +16,7 @@ plot_theme <-   theme_minimal()+
 theme_set(plot_theme)
 
 # remove unnecessary columns and rename
-cod_dat <- cod_dat_raw %>%
+cod_dat_rn <- cod_dat_raw %>%
   select(Year,`Haul Join ID`,`Starting Latitude (dd)`,`Starting Longitude (dd)`,`Ending Latitude (dd)`,`Ending Longitude (dd)`, Stratum,
          `Satisfactory Gear Performance`,`Bottom Depth`,`Weight (kg)`,`Number of Fish`) %>%
   rename(hauljoin=`Haul Join ID`,startlat=`Starting Latitude (dd)`,startlon=`Starting Longitude (dd)`,
@@ -25,18 +25,23 @@ cod_dat <- cod_dat_raw %>%
           )
 
 
-# Join appropriate GIS stations (cross-referenced from snow crab data)
+# Join appropriate GIS stations and empty hauls (cross-referenced from snow crab data)
 load('data/haul_join_key.Rdata')
 
-cod_dat <- cod_dat %>% 
-  left_join(haul_join_key,by=c("hauljoin"="HAULJOIN"))
+cod_dat <- cod_dat_rn %>% 
+  full_join(haul_join_key,by=c("hauljoin"="HAULJOIN")) %>% 
+  mutate(weight=coalesce(weight,0)) %>% 
+  # for those hauls missing midlat/midlon, fill with startlat/startlon
+  mutate(midlon=coalesce(midlon,startlon),midlat=coalesce(midlat,startlat))
+  
+print(paste("The number of missing latitudes is",sum(is.na(cod_dat$midlat))))
+print(paste("The number of missing longitudes is",sum(is.na(cod_dat$midlon))))
+print(paste("The number of missing stations IDs is",sum(is.na(cod_dat$station))))
+
 
 # Aggregate by station and year
 cod_dat_clean <- cod_dat %>%
-  select(-hauljoin) %>%
   
-  #remove all data with no station ID (HAVE TO DEAL WITH THIS LATER)
-  filter(!is.na(station)) %>%
   select(station,Year,AreaSwept_km2,midlon,midlat,weight,number) %>%
   
   #density in numbers and weight
@@ -70,9 +75,9 @@ library(gridExtra)
 
 # compare visually to assessment data
 assessment_abundance <- read_csv(here("data","assessment_tot_abun.csv"),col_types = 'dddddd') %>%
-  ggplot(aes(Year,Estimate))+
+  ggplot(aes(Year,Estimate/100))+
   geom_point(col='darkgreen')+geom_line(col='darkgreen')+
-  labs(x='year',y='Abundance (1000s fish)')+
+  labs(x='year',y='Abundance (x 1e5 fish)')+
   theme(panel.border = element_rect(fill=NA,color="darkgreen",size=2))
 
 

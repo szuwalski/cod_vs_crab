@@ -7,9 +7,9 @@ data<-read.csv("E:/cod and crab/opilio.csv",header=T,skip=5)
 mat_df<-read.csv("data/maturity.csv")
 
 # haul join key (for comparing to other species, e.g. cod, collected in the same survey)
-haul_join_key <- data %>% select(HAULJOIN,GIS_STATION,MID_LATITUDE,MID_LONGITUDE,AREA_SWEPT_VARIABLE) %>% 
+haul_join_key <- data %>% select(HAULJOIN,AKFIN_SURVEY_YEAR,GIS_STATION,MID_LATITUDE,MID_LONGITUDE,AREA_SWEPT_VARIABLE) %>% 
   distinct() %>%
-  rename(midlat=MID_LATITUDE,midlon=MID_LONGITUDE,station=GIS_STATION,AreaSwept_km2=AREA_SWEPT_VARIABLE)
+  rename(year=AKFIN_SURVEY_YEAR,midlat=MID_LATITUDE,midlon=MID_LONGITUDE,station=GIS_STATION,AreaSwept_km2=AREA_SWEPT_VARIABLE)
 save(haul_join_key,file="data/haul_join_key.Rdata")
 
 # data before 1982 unreliable
