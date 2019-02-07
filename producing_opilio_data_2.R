@@ -7,9 +7,13 @@ data<-read.csv("E:/cod and crab/opilio.csv",header=T,skip=5)
 mat_df<-read.csv("data/maturity.csv")
 
 # haul join key (for comparing to other species, e.g. cod, collected in the same survey)
-haul_join_key <- data %>% select(HAULJOIN,AKFIN_SURVEY_YEAR,GIS_STATION,MID_LATITUDE,MID_LONGITUDE,AREA_SWEPT_VARIABLE) %>% 
+haul_join_key <- data %>% select(HAULJOIN,AKFIN_SURVEY_YEAR,GIS_STATION,HAUL,MID_LATITUDE,MID_LONGITUDE,AREA_SWEPT_VARIABLE) %>% 
   distinct() %>%
-  rename(year=AKFIN_SURVEY_YEAR,midlat=MID_LATITUDE,midlon=MID_LONGITUDE,station=GIS_STATION,AreaSwept_km2=AREA_SWEPT_VARIABLE)
+  rename(hauljoin=HAULJOIN,year=AKFIN_SURVEY_YEAR,midlat=MID_LATITUDE,
+         midlon=MID_LONGITUDE,station=GIS_STATION,haul_number=HAUL,
+         AreaSwept_km2=AREA_SWEPT_VARIABLE) %>% 
+  #add another id column, combining year, station, and haul number
+  unite(towid,year,station,haul_number,sep="_",remove=F)
 save(haul_join_key,file="data/haul_join_key.Rdata")
 
 # data before 1982 unreliable
@@ -30,13 +34,15 @@ opi.dat <- data %>%
   filter(!is.na(SEX)) %>% 
   
   # select variables of interest
-  select(AKFIN_SURVEY_YEAR,GIS_STATION,MID_LATITUDE,MID_LONGITUDE, AREA_SWEPT_VARIABLE,
+  select(AKFIN_SURVEY_YEAR,GIS_STATION,HAUL,MID_LATITUDE,MID_LONGITUDE, AREA_SWEPT_VARIABLE,
          GEAR_TEMPERATURE,GEAR_DEPTH,BOTTOM_DEPTH,SEX,WIDTH,CLUTCH_SIZE,SHELL_CONDITION,
          CALCULATED_WEIGHT,SAMPLING_FACTOR) %>% 
   
   #rename some variables
-  rename(year=AKFIN_SURVEY_YEAR,station=GIS_STATION,lat=MID_LATITUDE,lon=MID_LONGITUDE,
+  rename(year=AKFIN_SURVEY_YEAR,station=GIS_STATION,haul_number=HAUL,lat=MID_LATITUDE,lon=MID_LONGITUDE,
          area_km2=AREA_SWEPT_VARIABLE,temp=GEAR_TEMPERATURE,depth_gear=GEAR_DEPTH,depth=BOTTOM_DEPTH) %>% 
+  #add another id column, combining year, station, and haul number
+  unite(towid,year,station,haul_number,sep="_",remove=F) %>% 
   
   # sex as character
   mutate(sex=ifelse(SEX==2,"Female","Male")) %>% 
@@ -63,7 +69,7 @@ opi.dat <- data %>%
   mutate(prob_immature=1-prob_mature) %>% 
   
   # summarize values of interest
-  group_by(station,lat,lon,year,sex,size) %>% 
+  group_by(towid,station,lat,lon,year,sex,size) %>% 
   summarise(
     # number and weight of mature and immature crabs
     num_mature=sum(SAMPLING_FACTOR*prob_mature,na.rm=T),
@@ -90,12 +96,12 @@ opi_dat_long <- opi.dat %>%
   #turn implicit missing values into explicit missing values
   #e.g., for every station/year that is in the data (i.e., was surveyed), but
   #did not collect any immature females, put in a zero for that observation
-  complete(sex,size,maturity,units,nesting(station,year,area_km2,lon,lat,depth,depth_gear,temp),fill=list(value=0)) %>% 
+  complete(sex,size,maturity,units,nesting(towid,station,year,area_km2,lon,lat,depth,depth_gear,temp),fill=list(value=0)) %>% 
   ungroup() %>% 
   
   #select final variables of interest
-  select(station,year,area_km2,lon,lat,depth,depth_gear,temp,sex,size,maturity,value,units) %>% 
-  arrange(station,year)
+  select(towid,station,year,area_km2,lon,lat,depth,depth_gear,temp,sex,size,maturity,value,units) %>% 
+  arrange(station,year,towid)
 
 ## NOTE: We arrive at a different total number of observations than in the previous interation:
 ## this seems to be because of the way we're counting NAs; the previous analysis counted year/station combinations

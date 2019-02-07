@@ -19,7 +19,7 @@ theme_set(plot_theme)
 cod_dat_rn <- cod_dat_raw %>%
   select(Year,`Haul Join ID`,`Starting Latitude (dd)`,`Starting Longitude (dd)`,`Ending Latitude (dd)`,`Ending Longitude (dd)`, Stratum,
          `Satisfactory Gear Performance`,`Bottom Depth`,`Weight (kg)`,`Number of Fish`) %>%
-  rename(hauljoin=`Haul Join ID`,startlat=`Starting Latitude (dd)`,startlon=`Starting Longitude (dd)`,
+  rename(hauljoin=`Haul Join ID`,year=Year,startlat=`Starting Latitude (dd)`,startlon=`Starting Longitude (dd)`,
           endlat=`Ending Latitude (dd)`,endlon=`Ending Longitude (dd)`,gear_satisfactory=`Satisfactory Gear Performance`,depth=`Bottom Depth`,
           weight=`Weight (kg)`,number=`Number of Fish`
           )
@@ -29,30 +29,33 @@ cod_dat_rn <- cod_dat_raw %>%
 load('data/haul_join_key.Rdata')
 
 cod_dat <- cod_dat_rn %>% 
-  full_join(haul_join_key,by=c("hauljoin"="HAULJOIN")) %>% 
+  full_join(haul_join_key,by=c("hauljoin","year")) %>% 
   mutate(weight=coalesce(weight,0)) %>% 
   # for those hauls missing midlat/midlon, fill with startlat/startlon
-  mutate(midlon=coalesce(midlon,startlon),midlat=coalesce(midlat,startlat))
+  mutate(midlon=coalesce(midlon,startlon),midlat=coalesce(midlat,startlat)) %>% 
+  rename(area_km2=AreaSwept_km2) %>% 
+  filter(year>1981)
   
 print(paste("The number of missing latitudes is",sum(is.na(cod_dat$midlat))))
 print(paste("The number of missing longitudes is",sum(is.na(cod_dat$midlon))))
 print(paste("The number of missing stations IDs is",sum(is.na(cod_dat$station))))
+print(paste("The number of missing years is",sum(is.na(cod_dat$year))))
 
 
 # Aggregate by station and year
 cod_dat_clean <- cod_dat %>%
   
-  select(station,Year,AreaSwept_km2,midlon,midlat,weight,number) %>%
+  select(towid,station,year,area_km2,midlon,midlat,weight,number) %>%
   
   #density in numbers and weight
-  mutate(dens_weight=weight/AreaSwept_km2,dens_num=number/AreaSwept_km2)
+  mutate(dens_weight=weight/area_km2,dens_num=number/area_km2)
 
 save(cod_dat_clean,file="data/cod_dat_clean.Rdata")
 
 # plot total biomass over time
 
 cod_by_yr <-cod_dat_clean %>%
-  group_by(Year) %>%
+  group_by(year) %>%
   summarise(n_obs=n(),
             num=mean(dens_num,na.rm = T),
             num_sd=sd(dens_num,na.rm = T),
@@ -61,12 +64,12 @@ cod_by_yr <-cod_dat_clean %>%
   ungroup()
 
 weight_by_yr_plot <-cod_by_yr %>%
-  ggplot(aes(Year,weight))+
+  ggplot(aes(year,weight))+
   geom_line()+
   geom_point()+
   labs(x='year',y='weight (kg/km2)')
 num_by_yr_plot <-cod_by_yr %>%
-  ggplot(aes(Year,num))+
+  ggplot(aes(year,num))+
   geom_line(col='blue')+
   geom_point(col='blue')+
   labs(x='year',y='density (number/km2)')
