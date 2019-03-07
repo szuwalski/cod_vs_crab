@@ -85,11 +85,12 @@ dat <- dat_combined %>% mutate(knot_i=Spatial_List$knot_i)
 FieldConfig = c(Omega1 = 2, Epsilon1 = 2, Omega2 = 2,
                 Epsilon2 = 2)
 # is there temporal correlation in the intercepts (Beta) or s-t variation (Epsilon)?
-# 0: each year as fixed effect; 
+# 0: each year as fixed effect;
 # 1: each year as random following IID distribution; 
 # 2: each year as random following a random walk; 
 # 3: constant among years as fixed effect; 
 # 4: each year as random following AR1 process
+
 RhoConfig = c(Beta1 = 2, Beta2 = 2, Epsilon1 = 4, Epsilon2 = 4)
 
 # is there overdispersion? often attributable to 'vessel effects'
@@ -104,12 +105,14 @@ OverdispersionConfig = c("Eta1"=0, "Eta2"=0)
 # third indicates whether to incorporate effect of F_ct, 
 # fourth indicates whether to add a new "t=0" year (while incrementing all t_i inputs) which represents B0
 # Method = 2 means Real-eigenvalues
+
 VamConfig	<- c("Method"=2,"Rank"=1, "Timing" =0)
 
 # what distributions and link functions to use?
 # first is the distribution for positive catch rates, 
 # second is the functional form for encounter probabilities,
 # we choose a lognormal distribution for positive catch rates and a Poisson delta-model using log-link for enc prob and log-link for catch rates
+BiasCorr= TRUE
 ObsModel = c(1, 1)
 
 #outputs we want
@@ -184,34 +187,32 @@ Obj_orig$gr( Obj_orig$par )
 # Bounds
 if( VamConfig['Method']==2 ){
   if( VamConfig['Rank']>0 ){
-    TmbList_orig[["Lower"]][which(names(TmbList_orig[["Lower"]])=="Psi_fr")[length(which(names(TmbList_orig[["Lower"]])=="Psi_fr"))+1-1:VamConfig['Rank']]] = 0
-    TmbList_orig[["Upper"]][which(names(TmbList_orig[["Lower"]])=="Psi_fr")[length(which(names(TmbList_orig[["Lower"]])=="Psi_fr"))+1-1:VamConfig['Rank']]] = 1
+    TmbList[["Lower"]][which(names(TmbList[["Lower"]])=="Psi_fr")[length(which(names(TmbList[["Lower"]])=="Psi_fr"))+1-1:VamConfig['Rank']]] = 0
+    TmbList[["Upper"]][which(names(TmbList[["Lower"]])=="Psi_fr")[length(which(names(TmbList[["Lower"]])=="Psi_fr"))+1-1:VamConfig['Rank']]] = 1
   }
   if( RhoConfig['Epsilon1'] %in% c(4,5) ){
-    TmbList_orig[["Lower"]][which(names(TmbList_orig[["Lower"]])=="Epsilon_rho1")] = 0
-    TmbList_orig[["Lower"]][which(names(TmbList_orig[["Lower"]])=="Epsilon_rho1_f")] = 0
+    TmbList[["Lower"]][which(names(TmbList[["Lower"]])=="Epsilon_rho1")] = 0
+    TmbList[["Lower"]][which(names(TmbList[["Lower"]])=="Epsilon_rho1_f")] = 0
   }
 }
 
 # Optimize                                         #
-Opt = TMBhelper::Optimize( obj=Obj_orig, lower=TmbList_orig[["Lower"]], upper=TmbList_orig[["Upper"]], savedir=RunDir, getsd=TRUE, bias.correct=BiasCorr, newtonsteps=1, bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct=c("Index_cyl","Bratio_cyl")) )
-Report_orig = Obj_orig$report()
-Save_orig = list("Opt"=Opt_orig, "Report"=Report_orig, "ParHat"=Obj_orig$env$parList(Opt_orig$par), "Data"=Data_orig, "Map"=Map)
-save(Save_orig, file=paste0(RunDir,"Save_orig.RData"))
-if("opt" %in% names(Opt_orig)) capture.output( Opt_orig$opt, file=paste0(RunDir,"parameter_estimates.txt"))
-# Use gradient-based nonlinear minimizer to identify maximum likelihood esimates for fixed effects
-Opt = TMBhelper::Optimize( obj=Obj, 
-                           lower=TmbList[["Lower"]], 
-                           upper=TmbList[["Upper"]], 
-                           getsd=TRUE, 
+Opt = TMBhelper::Optimize( obj=Obj_orig, 
+                           lower=TmbList[["Lower"]], upper=TmbList[["Upper"]], 
                            savedir=fp, 
-                           bias.correct=TRUE, 
-                           bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct="Index_cyl"), newtonsteps=1 )
-
-## bundle and save output!
-Report = Obj$report()
-Save = list("Opt"=Opt, "Report"=Report, "ParHat"=Obj$env$parList(Opt$par), "TmbData"=TmbData)
+                           getsd=TRUE, 
+                           bias.correct=BiasCorr, 
+                           newtonsteps=1, 
+                           bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct=c("Index_cyl")))
+Report = Obj_orig$report()
+Save = list("Opt"=Opt, "Report"=Report, "ParHat"=Obj_orig$env$parList(Opt$par), "Data"=dat, "Map"=Map)
 save(Save, file=paste0(fp,"Save.RData"))
+if("opt" %in% names(Opt)) capture.output( Opt$opt, file=paste0(fp,"parameter_estimates.txt"))
+
+
+
+
+# Use gradient-based nonlinear minimizer to identify maximum likelihood esimates for fixed effects
 
 #### Visualize and Diagnose Model Outputs####
 
