@@ -5,62 +5,16 @@ library(TMB)
 library(VAST)
 library(tidyverse)
 
+# Version = get_latest_version( package="VAST" )
+# VAST v5_4_0
 Version = "VAST_v4_4_0"
-
-# Spatial settings
-
-# Stochastic partial differential equation (SPDE) with geometric anisotropy
-Method <- "Mesh"
-Aniso <- 1
-# number of 'knots'
-n_x <- 200
-
-# whether to include spatial (omega) and s-t (epsilon) variation
-# for two linear predictors- 1. encounter probability, and 2. positive catch rate
-# for a univariate model, these are 0 ("turned off") or 1
-# for a multivariate model, can be any whole number 0:C, where C is the number of categories
-# indicating the number of factors to estimate
-FieldConfig = c(Omega1 = 2, Epsilon1 = 2, Omega2 = 2,
-                Epsilon2 = 2)
-# is there temporal correlation in the intercepts or s-t variation?
-# 0 means each year is a fixed effect, which is what we choose for now
-RhoConfig = c(Beta1 = 0, Beta2 = 0, Epsilon1 = 0, Epsilon2 = 0)
-
-# is there overdispersion? often attributable to 'vessel effects'
-# 0 means no overdispersion
-OverdispersionConfig = c("Eta1"=0, "Eta2"=0)
-
-# what distributions and link functions to use?
-# first is the distribution for positive catch rates, second is the functional form for encounter probabilities
-# we choose a gamma distribution for positive catch rates and a Poisson delta-model using log-link for enc prob and log-link for catch rates
-ObsModel = c(2, 1)
-
-#outputs we want
-Options = c(SD_site_density = 0, SD_site_logdensity = 0,
-            Calculate_Range = 1, Calculate_evenness = 0, Calculate_effective_area = 1,
-            Calculate_Cov_SE = 0, Calculate_Synchrony = 1,
-            Calculate_Coherence = 0)
-
-strata.limits <- data.frame(STRATA = "All_areas")
-
-# species 
-Region = "Eastern_Bering_Sea"
-Species_set = c("Chionoecetes opilio","Gadus macrocephalus")
-
-# save settings and data in a list
-fp = paste0(getwd(),'/vast/output/opilio_i_gadus/')
-dir.create(fp)
-Record = list(Version = Version, Method = Method,
-              n_x = n_x, FieldConfig = FieldConfig, RhoConfig = RhoConfig,
-              OverdispersionConfig = OverdispersionConfig, ObsModel = ObsModel,
-              Region = Region,
-              Species_set = Species_set, strata.limits = strata.limits)
-save(Record, file = file.path(fp, "Record.RData"))
-capture.output(Record, file = paste0(fp, "Record.txt"))
 
 #### Import Data ####
 load("data/longform_opilio2.Rdata")
 load("data/cod_dat_clean.Rdata")
+
+fp = paste0(getwd(),'/vast/output/opilio_i_gadus/')
+dir.create(fp)
 
 # filter to just immature crabs, summarise total by station/year, and row-bind cod data
 dat_opilio <- opi_dat_long %>% 
@@ -79,9 +33,10 @@ dat_gadus <- cod_dat_clean %>%
 # combine and add missing zeros for missing tows
 dat_combined <- bind_rows(dat_opilio,dat_gadus) %>% mutate(spp=factor(spp)) %>% 
   filter(!is.na(lat),!is.na(lon),year<2018) %>% 
-  # fill in zeroes for all tow/spp combinations that were previously missing
-  complete(spp,nesting(year,lat,lon),fill=list(biomass=0,area_km2=0.01,vessel=0)) %>% 
+  # do we fill in zeroes? for all tow/spp combinations that were previously missing
+  complete(spp,nesting(year,lat,lon),fill=list(biomass=0,area_km2=0.01,vessel=0)) %>%
   ungroup() %>%
+  # complete(spp,nesting(year,lat,lon),fill=list(area_km2=0.01,vessel=0))
   select(spp,year,lon,lat,area_km2,biomass,vessel)
 
 # data check- number of zeroes and NAs
@@ -91,10 +46,25 @@ zeroes_check <- dat_combined %>%
   arrange(spp,year)
 
 # make the extrapolatoin grid, building an object used to determine areas to extrapolate densities to when calculating indices
+# species 
+Region = "Eastern_Bering_Sea"
+Species_set = c("Chionoecetes opilio","Gadus macrocephalus")
+
+strata.limits <- data.frame(STRATA = "All_areas")
+
 Extrapolation_List = make_extrapolation_info(Region = Region,strata.limits = strata.limits)
 
 # generate the information used for conducting spatio-temporal parameter estimation, bundled in list `Spatial_List`
-Spatial_List = make_spatial_info(n_x=n_x, 
+
+# Stochastic partial differential equation (SPDE) with geometric anisotropy
+Method <- "Mesh"
+Aniso <- 1
+grid_size_km=25
+# number of 'knots'
+n_x <- 100
+
+Spatial_List = make_spatial_info(grid_size_km=grid_size_km,
+                                 n_x=n_x, 
                                  Method=Method, 
                                  Lon_i=dat_combined$lon, 
                                  Lat_i=dat_combined$lat, 
@@ -105,6 +75,69 @@ Spatial_List = make_spatial_info(n_x=n_x,
 # Add the knots to the the data
 dat <- dat_combined %>% mutate(knot_i=Spatial_List$knot_i)
 
+# Spatial settings
+
+# whether to include spatial (omega) and s-t (epsilon) variation
+# for two linear predictors- 1. encounter probability, and 2. positive catch rate
+# for a univariate model, these are 0 ("turned off") or 1
+# for a multivariate model, can be any whole number 0:C, where C is the number of categories
+# indicating the number of factors to estimate
+FieldConfig = c(Omega1 = 2, Epsilon1 = 2, Omega2 = 2,
+                Epsilon2 = 2)
+# is there temporal correlation in the intercepts (Beta) or s-t variation (Epsilon)?
+# 0: each year as fixed effect;
+# 1: each year as random following IID distribution; 
+# 2: each year as random following a random walk; 
+# 3: constant among years as fixed effect; 
+# 4: each year as random following AR1 process
+
+RhoConfig = c(Beta1 = 2, Beta2 = 2, Epsilon1 = 4, Epsilon2 = 4)
+
+# is there overdispersion? often attributable to 'vessel effects'
+# 0 means no overdispersion
+OverdispersionConfig = c("Eta1"=0, "Eta2"=0)
+
+# Options to estimate interactions
+
+# Options to estimate interactions, where 
+# first slot selects method for forming interaction matrix
+# second indicates rank
+# third indicates whether to incorporate effect of F_ct, 
+# fourth indicates whether to add a new "t=0" year (while incrementing all t_i inputs) which represents B0
+# Method = 2 means Real-eigenvalues
+
+VamConfig	<- c("Method"=2,"Rank"=1, "Timing" =0)
+
+# what distributions and link functions to use?
+# first is the distribution for positive catch rates, 
+# second is the functional form for encounter probabilities,
+# we choose a lognormal distribution for positive catch rates and a Poisson delta-model using log-link for enc prob and log-link for catch rates
+BiasCorr= TRUE
+ObsModel = c(1, 1)
+
+#outputs we want
+Options = c(SD_site_density = 0, SD_site_logdensity = 0,
+            Calculate_Range = 1, Calculate_evenness = 0, Calculate_effective_area = 1,
+            Calculate_Cov_SE = 0, Calculate_Synchrony = 0,
+            Calculate_Coherence = 0)
+
+# save settings and data in a list
+
+Record = list(Version = Version, 
+              Method = Method,
+              n_x = n_x, 
+              FieldConfig = FieldConfig, 
+              RhoConfig = RhoConfig,
+              OverdispersionConfig = OverdispersionConfig, 
+              VamConfig=VamConfig, 
+              ObsModel = ObsModel,
+              Region = Region,
+              Species_set = Species_set, 
+              strata.limits = strata.limits)
+save(Record, file = file.path(fp, "Record.RData"))
+capture.output(Record, file = paste0(fp, "Record.txt"))
+
+
 #### Build and Run Model ####
 
 # in order to estimate params, build a list of data-inputs used for param estimation
@@ -112,7 +145,8 @@ TmbData = Data_Fn("Version"=Version,
                   "FieldConfig"=FieldConfig,
                   "OverdispersionConfig"=OverdispersionConfig, 
                   "RhoConfig"=RhoConfig, 
-                  "ObsModel_ez"=ObsModel, 
+                  "VamConfig" = VamConfig,
+                  "ObsModel"=ObsModel, 
                   "c_iz"=as.numeric(dat$spp)-1,
                   "b_i"=dat$biomass, 
                   "a_i"=dat$area_km2, 
@@ -127,27 +161,58 @@ TmbData = Data_Fn("Version"=Version,
                   "Options"=Options)
 
 ## Build TMB model object
-TmbList = Build_TMB_Fn("TmbData"=TmbData, 
+TmbList = Build_TMB_Fn("build_model"=TRUE,
+                       "TmbData"=TmbData, 
                        "RunDir"=fp, 
                        "Version"=Version, 
                        "RhoConfig"=RhoConfig, 
                        "loc_x"=Spatial_List$loc_x, 
                        "Method"=Method)
-Obj = TmbList[["Obj"]]
+Map = TmbList$Map
+Parameters = TmbList$Parameters
+
+# Starting values for eigenvalues of B_cc
+if( VamConfig['Method']==2 ){
+  if( RhoConfig[3]==4 ){
+    Parameters$Epsilon_rho1_f[] = 0.5
+    if( VamConfig['Rank']>=1 ) Parameters[["Psi_fr"]][cbind(1:VamConfig['Rank'],1:VamConfig['Rank'])] = 0.1*(1:VamConfig['Rank']) - mean(Parameters$Epsilon_rho1_f[])
+  }
+}
+
+# Optimize
+Obj_orig = TmbList[["Obj"]]
+Obj_orig$fn( Obj_orig$par )
+Obj_orig$gr( Obj_orig$par )
+
+# Bounds
+if( VamConfig['Method']==2 ){
+  if( VamConfig['Rank']>0 ){
+    TmbList[["Lower"]][which(names(TmbList[["Lower"]])=="Psi_fr")[length(which(names(TmbList[["Lower"]])=="Psi_fr"))+1-1:VamConfig['Rank']]] = 0
+    TmbList[["Upper"]][which(names(TmbList[["Lower"]])=="Psi_fr")[length(which(names(TmbList[["Lower"]])=="Psi_fr"))+1-1:VamConfig['Rank']]] = 1
+  }
+  if( RhoConfig['Epsilon1'] %in% c(4,5) ){
+    TmbList[["Lower"]][which(names(TmbList[["Lower"]])=="Epsilon_rho1")] = 0
+    TmbList[["Lower"]][which(names(TmbList[["Lower"]])=="Epsilon_rho1_f")] = 0
+  }
+}
+
+# Optimize                                         #
+Opt = TMBhelper::Optimize( obj=Obj_orig, 
+                           lower=TmbList[["Lower"]], upper=TmbList[["Upper"]], 
+                           savedir=fp, 
+                           getsd=TRUE, 
+                           bias.correct=BiasCorr, 
+                           newtonsteps=1, 
+                           bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct=c("Index_cyl")))
+Report = Obj_orig$report()
+Save = list("Opt"=Opt, "Report"=Report, "ParHat"=Obj_orig$env$parList(Opt$par), "Data"=dat, "Map"=Map)
+save(Save, file=paste0(fp,"Save.RData"))
+if("opt" %in% names(Opt)) capture.output( Opt$opt, file=paste0(fp,"parameter_estimates.txt"))
+
+
+
 
 # Use gradient-based nonlinear minimizer to identify maximum likelihood esimates for fixed effects
-Opt = TMBhelper::Optimize( obj=Obj, 
-                           lower=TmbList[["Lower"]], 
-                           upper=TmbList[["Upper"]], 
-                           getsd=TRUE, 
-                           savedir=fp, 
-                           bias.correct=TRUE, 
-                           bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct="Index_cyl"), newtonsteps=1 )
-
-## bundle and save output!
-Report = Obj$report()
-Save = list("Opt"=Opt, "Report"=Report, "ParHat"=Obj$env$parList(Opt$par), "TmbData"=TmbData)
-save(Save, file=paste0(fp,"Save.RData"))
 
 #### Visualize and Diagnose Model Outputs####
 
