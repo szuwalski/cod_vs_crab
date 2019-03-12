@@ -17,7 +17,7 @@ load("data/cod_dat_clean.Rdata")
 fp = paste0(getwd(),'/vast/output/opilio_mf/')
 dir.create(fp)
 
-# filter to just immature crabs, summarise total by station/year, and row-bind cod data
+# filter to just mature female crabs, summarise total by station/year, and row-bind cod data
 dat_opilio <- opi_dat_long %>% 
   filter(maturity=="Mature",sex=="Female",units=="kilos") %>% 
   group_by(towid,year,lon,lat,area_km2) %>% 
