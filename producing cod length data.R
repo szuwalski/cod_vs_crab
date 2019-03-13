@@ -36,6 +36,37 @@ cod_dat <- cod_dat_raw %>%
   mutate(year=as.integer(year)) %>% 
   arrange(year)
 
+## Summarize by haul
+# count number of samples by haul
+individuals_per_haul <- cod_dat %>% 
+  group_by(year,hauljoin) %>% 
+  summarise(nsamples=sum(frequency),nsizes=length(unique(length))) %>% 
+  ungroup()
+individuals_per_haul %>% 
+  ggplot(aes(nsizes,..count..))+
+  geom_histogram(bins=15,fill='darkblue',col='black')+
+  labs(x="Number of Unique Sizes",y="Number of Hauls (all years)",
+       title="Distribution of Number of Size Bins per Haul")
+individuals_per_haul %>% 
+  ggplot(aes(nsamples,..count..))+
+  geom_histogram(bins=15,fill='darkblue',col='black')+
+  labs(x="Number of Cod Measured",y="Number of Hauls (all years)",
+       title="Distribution of Number of Individuals Measured per Haul")+
+  xlim(0,250)
+
+# size freq all years
+sizes_all_yrs <- cod_dat %>% 
+  group_by(length) %>%
+  summarise(frequency=sum(frequency)) %>% 
+  ungroup()
+
+sizes_all_yrs %>% 
+  ggplot(aes(length,frequency))+
+  geom_bar(stat="identity",fill='darkblue',color=NA)+
+  labs(title="Pacific Cod Size-Frequency, All Years",
+       x="Length (mm)",y="Number of Individuals")
+
+
 sizecomp_by_year <- cod_dat %>% 
   group_by(year,length) %>% 
   summarise(frequency=sum(frequency)) %>%
