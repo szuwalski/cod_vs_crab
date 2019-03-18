@@ -137,6 +137,7 @@ Options = c(SD_site_density = 0, SD_site_logdensity = 0,
 Record = list(Version = Version, 
               Method = Method,
               n_x = n_x, 
+              Aniso = Aniso,
               FieldConfig = FieldConfig, 
               RhoConfig = RhoConfig,
               OverdispersionConfig = OverdispersionConfig, 
@@ -144,7 +145,8 @@ Record = list(Version = Version,
               ObsModel = ObsModel,
               Region = Region,
               Species_set = Species_set, 
-              strata.limits = strata.limits)
+              strata.limits = strata.limits,
+              Options=Options)
 save(Record, file = file.path(fp, "Record.RData"))
 capture.output(Record, file = paste0(fp, "Record.txt"))
 
@@ -211,18 +213,25 @@ if("opt" %in% names(Opt)) capture.output( Opt$opt, file=paste0(fp,"parameter_est
 # Use gradient-based nonlinear minimizer to identify maximum likelihood esimates for fixed effects
 
 #### Model Output Diagnostics ####
+# if not re-running, load
+load(paste0(fp,"Record.Rdata"))
+load(paste0(fp,"Save.RData"))
+load(paste0(fp,"Spatial_List.Rdata"))
+load(paste0(fp,"parameter_estimates.Rdata"))
+dat <- Save$Data
+list2env(Record,envir = environment())
 
 names(dat) <- c("spp","Year","Lon","Lat","area_km2", "Catch_KG","vessel","knot_i")
 # diagnostic plots
 plot_data(Extrapolation_List=Extrapolation_List, Spatial_List=Spatial_List, Data_Geostat=dat, PlotDir=fp )
 
 # convergence
-pander::pandoc.table( Opt$diagnostics[,c('Param','Lower','MLE','Upper','final_gradient')] ) 
+pander::pandoc.table(Save$Opt$diagnostics[,c('Param','Lower','MLE','Upper','final_gradient')] ) 
 
 ## Check encounter probabilities
 # Check whether observed encounter frequencies for either low or high probability samples 
 # are within the 95% predictive interval for predicted encounter probability
-Enc_prob = plot_encounter_diagnostic( Report=Report, Data_Geostat=dat, DirName=fp)
+Enc_prob = plot_encounter_diagnostic( Report=Save$Report, Data_Geostat=dat, DirName=fp)
 
 # Check positive catch-rate
 #nWe can visualize fit to residuals of catch-rates given encounters using a Q-Q plot.  
