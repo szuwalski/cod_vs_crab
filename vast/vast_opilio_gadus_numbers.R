@@ -115,8 +115,8 @@ dat <- dat %>% mutate(knot_i=Spatial_List$knot_i)
 # for a univariate model, these are 0 ("turned off") or 1
 # for a multivariate model, can be any whole number 0:C, where C is the number of categories
 # indicating the number of factors to estimate
-FieldConfig = c(Omega1 = 5, Epsilon1 = 5, Omega2 = 5,
-                Epsilon2 = 5)
+FieldConfig = c(Omega1 = 3, Epsilon1 = 3, Omega2 = 3,
+                Epsilon2 = 3)
 # is there temporal correlation in the intercepts (Beta) or s-t variation (Epsilon)?
 # 0: each year as fixed effect; 
 # 1: each year as random following IID distribution; 
@@ -142,7 +142,7 @@ VamConfig	<- c("Method"=0,"Rank"=0, "Timing" =0)
 # what distributions and link functions to use?
 # first is the distribution for positive catch rates, 
 # second is the functional form for encounter probabilities,
-# we choose a Poisson distribution for positive catch rates and a conventional delta-model for enc prob
+# we choose a lognormal distribution for positive catch rates and a conventional delta-model for enc prob
 # 
 ObsModel = c(1, 0)
 
@@ -265,7 +265,7 @@ Q = plot_quantile_diagnostic( TmbData=TmbData, Report=Report, FileName_PP="Poste
 
 ## Plotting residuals on a map
 # Get region-specific settings for plots
-MapDetails_List = make_map_info( "Region"=Region, "NN_Extrap"=Spatial_List$PolygonList$NN_Extrap, "Extrapolation_List"=Extrapolation_List )
+MapDetails_List = make_map_info( "Region"=Region,spatial_list = Spatial_List, "NN_Extrap"=Spatial_List$PolygonList$NN_Extrap, "Extrapolation_List"=Extrapolation_List )
 # Decide which years to plot                                                   
 Year_Set = seq(min(dat$Year),max(dat$Year))
 Years2Include = which( Year_Set %in% sort(unique(dat$Year)))
@@ -273,7 +273,7 @@ Years2Include = which( Year_Set %in% sort(unique(dat$Year)))
 # Plot Pearson residuals.  
 # If there are visible patterns (areas with consistently positive or negative residuals accross or within years) 
 # then this is an indication of the model "overshrinking" results towards the intercept, and model results should then be treated with caution.  
-
+TmbData$n_x <- TmbData$n_g
 plot_residuals(Lat_i=dat[,'Lat'], Lon_i=dat[,'Lon'], TmbData=TmbData, Report=Report, Q=Q, 
                savedir=fp, MappingDetails=MapDetails_List[["MappingDetails"]], 
                PlotDF=MapDetails_List[["PlotDF"]], MapSizeRatio=MapDetails_List[["MapSizeRatio"]], 

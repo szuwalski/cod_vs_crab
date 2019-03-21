@@ -33,9 +33,12 @@ cod_dat <- cod_dat_raw %>%
          sex=Sex,
          sample_type=`Sample Type`,
          length_type=`Length Type`) %>% 
+  mutate(midlat=(startlat+endlat)/2,
+         midlon=(startlon+endlon)/2) %>% 
   mutate(year=as.integer(year)) %>% 
   arrange(year)
 
+save(cod_dat,file='data/cod_dat_size_number.Rdata')
 ## Summarize by haul
 # count number of samples by haul
 individuals_per_haul <- cod_dat %>% 
