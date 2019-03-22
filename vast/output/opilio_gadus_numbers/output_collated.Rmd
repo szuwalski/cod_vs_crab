@@ -78,8 +78,10 @@ knitr::include_graphics(paste0(fp,"/QQ_Fn/Posterior_Predictive-Histogram-5.jpg")
 
 ## Covariance
 
-Columnns: Omega, Epilson
+Columnns: Omega, Epsilon (Spatial, Temporal variation, respectively)
+
 Rows: Encounter probability, Positive catch rate
+
 ```{r}
 knitr::include_graphics(paste0(fp,"/Cov--Analytic.png"))
 ```
@@ -100,6 +102,12 @@ knitr::include_graphics(paste0(fp,"/dens_Opilio Spawner.png"))
 knitr::include_graphics(paste0(fp,"/dens_Small Cod.png"))
 knitr::include_graphics(paste0(fp,"/dens_Medium Cod.png"))
 knitr::include_graphics(paste0(fp,"/dens_Large Cod.png"))
+```
+
+## Correlation in Predicted Densities
+
+```{r}
+knitr::include_graphics(paste0(fp,"/spp_correlations.png"))
 ```
 
 ## Factor Loadings
