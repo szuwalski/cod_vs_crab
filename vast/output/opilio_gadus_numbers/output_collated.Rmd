@@ -1,0 +1,150 @@
+---
+title: "VAST model outputs"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(rEDM)
+
+# figure theme
+plot_theme <-   theme_minimal()+
+  theme(text=element_text(family="sans",size=12,color="black"),
+        legend.text = element_text(size=14),
+        axis.title=element_text(family="sans",size=14,color="black"),
+        axis.text=element_text(family="sans",size=8,color="black"),
+        panel.grid.major = element_line(color="gray50",linetype=3))
+theme_set(plot_theme)
+```
+
+```{r}
+fp <-here('vast','output','opilio_gadus_numbers')
+setwd(fp)
+```
+
+# Model options
+```{r}
+load(paste0(fp,"/Record.RData"))
+list2env(Record,envir = environment())
+Record
+```
+
+
+# Model diagnostics
+
+## Residuals
+
+Catch rate
+
+```{r}
+knitr::include_graphics(paste0(fp,"/maps--catchrate_pearson_resid.png"))
+```
+
+Encounter rate
+
+```{r}
+knitr::include_graphics(paste0(fp,"/Diag--Encounter_prob.png"))
+knitr::include_graphics(paste0(fp,"/maps--encounter_pearson_resid.png"))
+```
+
+## Direction of geometric anisotropy
+
+```{r}
+knitr::include_graphics(paste0(fp,"/Aniso.png"))
+```
+
+## Q-Q plots
+
+```{r}
+# Opilio immature
+knitr::include_graphics(paste0(fp,"/QQ_Fn/Posterior_Predictive-Histogram-1.jpg"))
+# Spawners
+knitr::include_graphics(paste0(fp,"/QQ_Fn/Posterior_Predictive-Histogram-2.jpg"))
+# Small cod
+knitr::include_graphics(paste0(fp,"/QQ_Fn/Posterior_Predictive-Histogram-3.jpg"))
+# Medium cod
+knitr::include_graphics(paste0(fp,"/QQ_Fn/Posterior_Predictive-Histogram-4.jpg"))
+# Large cod
+knitr::include_graphics(paste0(fp,"/QQ_Fn/Posterior_Predictive-Histogram-5.jpg"))
+```
+
+# Model outputs
+
+## Covariance
+
+Columnns: Omega, Epilson
+Rows: Encounter probability, Positive catch rate
+```{r}
+knitr::include_graphics(paste0(fp,"/Cov--Analytic.png"))
+```
+
+## Biomass Index, Center of Gravity and Effective Area Occupied
+
+```{r}
+knitr::include_graphics(paste0(fp,"/Index-Biomass.png"))
+knitr::include_graphics(paste0(fp,"/center_of_gravity.png"))
+knitr::include_graphics(paste0(fp,"/Effective_Area.png"))
+```
+
+## Predicted Density (Log scale)
+
+```{r}
+knitr::include_graphics(paste0(fp,"/dens_Opilio Immature.png"))
+knitr::include_graphics(paste0(fp,"/dens_Opilio Spawner.png"))
+knitr::include_graphics(paste0(fp,"/dens_Small Cod.png"))
+knitr::include_graphics(paste0(fp,"/dens_Medium Cod.png"))
+knitr::include_graphics(paste0(fp,"/dens_Large Cod.png"))
+```
+
+## Factor Loadings
+
+```{r}
+knitr::include_graphics(paste0(fp,"/factor_loadings_rotated.png"))
+```
+
+## Factor Maps (Spatial Average)
+
+```{r}
+
+# Omega 1 (encounter probability, spatial variation)
+knitr::include_graphics(paste0(fp,"/Factor_maps--Omega1.png"))
+# Omega 2 (positive catch rate, spatial variation)
+knitr::include_graphics(paste0(fp,"/Factor_maps--Omega2.png"))
+# Epsilon 1 (encounter probability, spatiotemporal variation)
+knitr::include_graphics(paste0(fp,"/Factor_maps--Epsilon1.png"))
+# Epsilon 2 (positive catch rate, spatiotemporal variation)
+knitr::include_graphics(paste0(fp,"/Factor_maps--Epsilon2.png"))
+```
+
+
+## Factor Maps (Spatio-Temporal Annual Variation)
+```{r}
+# Factor 1, Positive Catch Rate
+knitr::include_graphics(paste0(fp,"/Eps_Pos--Factor_1.png"))
+# Factor 2, Positive Catch Rate
+knitr::include_graphics(paste0(fp,"/Eps_Pos--Factor_2.png"))
+# Factor 3, Positive Catch Rate
+knitr::include_graphics(paste0(fp,"/Eps_Pos--Factor_3.png"))
+# Factor 4, Positive Catch Rate
+knitr::include_graphics(paste0(fp,"/Eps_Pos--Factor_4.png"))
+# Factor 5, Positive Catch Rate
+knitr::include_graphics(paste0(fp,"/Eps_Pos--Factor_5.png"))
+# Factor 1, Presence Absence
+knitr::include_graphics(paste0(fp,"/Eps_Pres--Factor_1.png"))
+# Factor 2, Presence Absence
+knitr::include_graphics(paste0(fp,"/Eps_Pres--Factor_2.png"))
+# Factor 3, Presence Absence
+knitr::include_graphics(paste0(fp,"/Eps_Pres--Factor_3.png"))
+# Factor 4, Presence Absence
+knitr::include_graphics(paste0(fp,"/Eps_Pres--Factor_4.png"))
+# Factor 5, Presence Absence
+knitr::include_graphics(paste0(fp,"/Eps_Pres--Factor_5.png"))
+```
+
+
