@@ -115,8 +115,8 @@ dat <- dat %>% mutate(knot_i=Spatial_List$knot_i)
 # for a univariate model, these are 0 ("turned off") or 1
 # for a multivariate model, can be any whole number 0:C, where C is the number of categories
 # indicating the number of factors to estimate
-FieldConfig = c(Omega1 = 3, Epsilon1 = 3, Omega2 = 3,
-                Epsilon2 = 3)
+FieldConfig = c(Omega1 = 5, Epsilon1 = 5, Omega2 = 5,
+                Epsilon2 = 5)
 # is there temporal correlation in the intercepts (Beta) or s-t variation (Epsilon)?
 # 0: each year as fixed effect; 
 # 1: each year as random following IID distribution; 
@@ -306,30 +306,6 @@ Dens_xt = plot_maps(plot_set=c(3), MappingDetails=MapDetails_List[["MappingDetai
                     Legend=MapDetails_List[["Legend"]], zone=MapDetails_List[["Zone"]], mar=c(0,0,2,0), oma=c(3.5,3.5,0,0),
                     cex=1.8, plot_legend_fig=FALSE)
 
-# We can also extract density predictions at different locations, for use or plotting in other software. 
-# This is output in UTM using zone `r Extrapolation_List$zone-ifelse(Extrapolation_List$flip_around_dateline,30,0)`
-Dens_DF = cbind( "Density"=as.vector(Dens_xt), "Year"=Year_Set[col(Dens_xt)], 
-                 "E_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'E_km'], 
-                 "N_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'N_km'] ) %>% as_tibble()
-
-loc_x <- Spatial_List$MeshList$loc_x %>% as_tibble()
-gadus_pred <- cbind( "Density"=as.vector(Report$D_xcy[,1,]), "Year"=Year_Set[col(Dens_xt)], 
-                     "E_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'E_km'], 
-                     "N_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'N_km'] ) %>% 
-  as_tibble() %>% 
-  mutate(category="Gadus macrocephalus")
-opilio_mf_pred <-  cbind( "Density"=as.vector(Report$D_xcy[,2,]), "Year"=Year_Set[col(Dens_xt)], 
-                          "E_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'E_km'], 
-                          "N_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'N_km'] ) %>% 
-  as_tibble() %>% 
-  mutate(category="Opilio immature")
-opilio_imm_pred <-  cbind( "Density"=as.vector(Report$D_xcy[,3,]), "Year"=Year_Set[col(Dens_xt)], 
-                           "E_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'E_km'], 
-                           "N_km"=Spatial_List$MeshList$loc_x[row(Dens_xt),'N_km'] ) %>% 
-  as_tibble() %>% 
-  mutate(category="Opilio spawners")
-pred_all <- bind_rows(gadus_pred,opilio_imm_pred,opilio_mf_pred)
-
 ## Index of abundance
 # The index of abundance is generally most useful for stock assessment models.
 Index = plot_biomass_index( DirName=fp, TmbData=TmbData, Sdreport=Opt[["SD"]], Year_Set=Year_Set, 
@@ -344,5 +320,5 @@ plot_range_index(Report=Report, TmbData=TmbData, Sdreport=Opt[["SD"]], Znames=co
 ## Plot factors
 # Finally, we can inspect the factor-decomposition for community-level patterns.  
 # This generates many plots
-Plot_factors( Report=Report, ParHat=Obj$env$parList(), Data=TmbData, SD=Opt$SD, mapdetails_list=MapDetails_List, 
+factors <- Plot_factors( Report=Report, ParHat=Obj$env$parList(), Data=TmbData, SD=Opt$SD, mapdetails_list=MapDetails_List, 
               Year_Set=Year_Set, category_names=levels(dat$spp), plotdir=fp )
