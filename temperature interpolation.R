@@ -87,7 +87,6 @@ interpolate_data <- function(df,yr) {
 }
 
 ### Calculate and save plots (takes a long time)
-# For mature males
 purrr::map(1982:2017, ~{
   interpolate_data(df=nbt_dat,yr=.x)
 }) %>% bind_rows() -> nbt.interpolated

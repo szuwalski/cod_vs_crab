@@ -19,7 +19,7 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
   st_transform(26904)
 
 ## data for testing ##
-fp = paste0(getwd(),'/vast/output/opilio_gadus_numbers/')
+fp = paste0(getwd(),'/vast/output/opilio_gadus_numbers_covars/')
 load(paste0(fp,"Record.Rdata"))
 load(paste0(fp,"Save.RData"))
 load(paste0(fp,"Spatial_List.Rdata"))
@@ -119,7 +119,7 @@ plot_fct_loadings <- function(factors,dat,rotated=TRUE,fp,saveplots=TRUE) {
   out <-ggplot(loadings_lng,aes(spp,load,fill=is_pos))+
     geom_bar(stat='identity')+
     geom_hline(yintercept=0,col='black')+
-    geom_text(aes(x=4,y=1.5,label=prop),check_overlap = T)+
+    geom_text(aes(x=4,y=1,label=prop),check_overlap = T)+
     facet_grid(fct_num~fct)+
     guides(fill='none')+
     labs(x="Species",y="Loading",title="Factor Loadings")+
@@ -193,16 +193,32 @@ plot_fct_maps <- function(Region,MapDetails_List, Report,dat,fp,saveplots=TRUE){
   return(plotlist)
 }
 # Plot species correlations (density correlations)
-plot_category_correlations <- function(Region,Spatial_List, Extrapolation_List,dat){
+plot_category_correlations <- function(Report,Spatial_List, Extrapolation_List,dat,type="density"){
   
-  dens <- log(Report$D_gcy)
+  if(!(type %in% c('density','enc','pos'))){
+    stop("type parameter must be one of 'density','enc','pos'")
+  }
+  
+  if(type=='density'){
+    est <- log(Report$D_gcy) 
+    lab <- "Density"
+  }
+  if(type=='enc'){
+    est <- Report$R1_gcy
+    lab <- "Encounter Probability"
+  }
+  if(type=='pos'){
+    est <- Report$R2_gcy
+    lab <- "Positive Catch Rate"
+  }
   cols<-colorRampPalette(colors=c("darkblue","blue","lightblue","lightgreen","yellow","orange","red"))(50)
   
   # row bind all the years for each species
-  dim(dens) <- c(50*36,5)
+  report_dims <- dim(Report$D_gcy)
+  dim(est) <- c(report_dims[1]*report_dims[3],report_dims[2])
   
   # get correlations
-  spp_cor <- cor(dens,dens)
+  spp_cor <- cor(est,est)
   
   # make graph
   cats <- factor(tools::toTitleCase(levels(dat$spp)),levels=tools::toTitleCase(levels(dat$spp)))
@@ -215,8 +231,34 @@ plot_category_correlations <- function(Region,Spatial_List, Extrapolation_List,d
     scale_fill_gradient2()+
     geom_text(aes(label=round(corr,2)))+
     coord_equal()+
-    labs(x="",y="",title="Correlation in Predicted Density",fill=expression(rho))+
+    labs(x="",y="",title=paste("Correlation in Predicted",lab),fill=expression(rho))+
     theme(axis.text.x = element_text(angle=60,hjust=1),
           legend.title = element_text(size=14))
 
+}
+
+plot_2d_cog <- function(Spatial_List,Report,Sdreport,dat,dens.tbl,use_biascorr=F) {
+  
+  cats <- factor(tools::toTitleCase(levels(dat$spp)),levels=tools::toTitleCase(levels(dat$spp)))
+  CogName <- 'mean_Z_cym'
+  
+  cog_arr <- Save$Report$mean_Z_cym
+  ncats <- dim(cog_arr)[1]
+  nyrs <- dim(cog_arr)[2]
+  years <- seq(min(dat$Year),max(dat$Year))
+  dim(cog_arr) <- c(ncats*nyrs,dim(cog_arr)[3])
+  cog_tbl <- tibble(category=rep(cats,nyrs),year=rep(years,each=ncats),east=cog_arr[,1],north=cog_arr[,2])
+  
+  # index
+  dens_tbl <- dens.tbl %>% rename(category=Category,year=Year,est_mt=Estimate_metric_tons) %>% 
+    select(category,year,est_mt) %>% 
+    mutate(category=tools::toTitleCase(category))
+  
+  cog_dens <- left_join(cog_tbl,dens_tbl,by=c('category','year'))
+  
+  out <- ggplot(cog_dens,aes(east,north,col=year,size=est_mt))+
+    geom_point()+
+    coord_equal()+
+    facet_wrap(~category)
+  out
 }
