@@ -23,11 +23,18 @@ Version = get_latest_version( package="VAST" )
 load("data/longform_opilio2.Rdata")
 load("data/cod_dat_size_number.Rdata")
 
+# size frequency of immature crabs
+opi_imm_n <- opi_dat_long %>% filter(maturity=="Immature",units=="numbers") %>% 
+  group_by(size) %>% 
+  summarise(totn=sum(value)) %>% 
+  ungroup()
+opi_imm_n %>% ggplot(aes(size,totn))+geom_bar(stat='identity')+labs(x="Carapace Width",y="Total Number",title="Immature Snow Crab Size Frequency")
 
 # filter for immature or mature female crabs, summarise total numbers by station/year, and row-bind cod data
+# In cod stomachs, 95% of crabs range between 8 and 57mm carapace width. So we will also use this as a cutoff
 dat_opilio <- opi_dat_long %>% 
   mutate(spp=case_when(
-    maturity=="Immature" ~ "Opilio immature",
+    maturity=="Immature"&size<58 ~ "Opilio immature",
     maturity=="Mature" & sex=="Female" ~ "Opilio spawner",
     TRUE ~ NA_character_
   )) %>% 
@@ -277,6 +284,7 @@ dat <- Save$Data
 list2env(Record,envir = environment())
 
 names(dat) <- c("spp","Year","Lon","Lat","area_km2", "Catch_KG","vessel","knot_i")
+source("C:/Users/owenr/Documents/github/cod_vs_crab/vast/output__helper_fxns.R")
 # diagnostic plots
 plot_data(Extrapolation_List=Extrapolation_List, Spatial_List=Spatial_List, Data_Geostat=dat, PlotDir=fp )
 
@@ -332,12 +340,13 @@ Cov_List = Summarize_Covariance( Report=Report, ParHat=Obj$env$parList(), Data=T
 
 ## Density surface for each year
 # predicted density, but other options are obtained via other integers passed to `plot_set` as described in `?plot_maps`
-Dens_xt = plot_maps(plot_set=c(3), MappingDetails=MapDetails_List[["MappingDetails"]], Report=Report, 
-                    Sdreport=Opt$SD, PlotDF=MapDetails_List[["PlotDF"]], MapSizeRatio=MapDetails_List[["MapSizeRatio"]], 
-                    Xlim=MapDetails_List[["Xlim"]], Ylim=MapDetails_List[["Ylim"]], FileName=fp, Year_Set=Year_Set, 
-                    Years2Include=Years2Include, Rotate=MapDetails_List[["Rotate"]], Cex=MapDetails_List[["Cex"]], category_names = levels(dat$spp),
-                    Legend=MapDetails_List[["Legend"]], zone=MapDetails_List[["Zone"]], mar=c(0,0,2,0), oma=c(3.5,3.5,0,0),
-                    cex=1.8, plot_legend_fig=FALSE)
+plot_density(Region,Spatial_List,Report,Extrapolation_List,dat,fp,saveplots = T)
+# Dens_xt = plot_maps(plot_set=c(3), MappingDetails=MapDetails_List[["MappingDetails"]], Report=Report, 
+#                     Sdreport=Opt$SD, PlotDF=MapDetails_List[["PlotDF"]], MapSizeRatio=MapDetails_List[["MapSizeRatio"]], 
+#                     Xlim=MapDetails_List[["Xlim"]], Ylim=MapDetails_List[["Ylim"]], FileName=fp, Year_Set=Year_Set, 
+#                     Years2Include=Years2Include, Rotate=MapDetails_List[["Rotate"]], Cex=MapDetails_List[["Cex"]], category_names = levels(dat$spp),
+#                     Legend=MapDetails_List[["Legend"]], zone=MapDetails_List[["Zone"]], mar=c(0,0,2,0), oma=c(3.5,3.5,0,0),
+#                     cex=1.8, plot_legend_fig=FALSE)
 
 ## Index of abundance
 # The index of abundance is generally most useful for stock assessment models.

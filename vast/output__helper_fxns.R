@@ -19,15 +19,15 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
   st_transform(26904)
 
 ## data for testing ##
-fp = paste0(getwd(),'/vast/output/opilio_gadus_numbers_covars/')
-load(paste0(fp,"Record.Rdata"))
-load(paste0(fp,"Save.RData"))
-load(paste0(fp,"Spatial_List.Rdata"))
-load(paste0(fp,"parameter_estimates.Rdata"))
-dat <- Save$Data
-list2env(Record,envir = environment())
+# fp = paste0(getwd(),'/vast/output/opilio_gadus_numbers_covars/')
+# load(paste0(fp,"Record.Rdata"))
+# load(paste0(fp,"Save.RData"))
+# load(paste0(fp,"Spatial_List.Rdata"))
+# load(paste0(fp,"parameter_estimates.Rdata"))
+# dat <- Save$Data
+# list2env(Record,envir = environment())
 
-names(dat) <- c("spp","Year","Lon","Lat","area_km2", "Catch_KG","vessel","knot_i")
+# names(dat) <- c("spp","Year","Lon","Lat","area_km2", "Catch_KG","vessel","knot_i")
 
 # ggplot theme
 plot_theme <-   theme_minimal()+
