@@ -1,0 +1,413 @@
+---
+title: "Cod Diet Data Exploration"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(sf)
+library(ggsci)
+library(knitr)
+
+# figure theme
+plot_theme <-   theme_minimal()+
+  theme(text=element_text(family="sans",size=12,color="black"),
+        legend.text = element_text(size=14),
+        axis.title=element_text(family="sans",size=14,color="black"),
+        axis.text=element_text(family="sans",size=8,color="black"),
+        panel.grid.major = element_line(color="gray50",linetype=3))
+theme_set(plot_theme)
+```
+
+# Import Data
+Notes from Livingston et al 2017
+
+* Use Prey_Name, not Prey_NODC
+* Care should be taken when scaling records for ind. fish up to population-level estimates of prey consumption (see Buckley et al 2015)
+* Per-haul estimates are very noisy and should be treated with caution
+* 1981-1984 sample sizes were lower
+* Be careful about assumptions made about empty stomachs, because regurgitation is common and varies among samplers
+* Temporal aliasing of the survey should be taken into account with respect to seasonal and spatial patterns of prey availability
+
+Some important variable definitions (all are provided in Livingston et al. 2017 Appendix)
+* Prey_cnt is count of a given prey
+* Prey_twt is total weight of a given prey; value of 0.0 indicates empty stomach
+* Pred_len is fork length of the predator
+* Pred_full is a categorical fullness index of the predator stomach
+* Prey_lh is prey life history stage (Table 6)
+* Pred_dig is how digested a given prey item is
+
+For now, we select just predator, predator length, prey life history stage, and id codes (haul, lat/lon, etc)
+
+```{r,eval=FALSE}
+dat <- read_csv("https://access.afsc.noaa.gov/REEM/WebDietData/showdata2.php?NODC=8791030401&Region=BS")
+glimpse(dat,width = 6)
+
+# For now, we select just predator, predator length, prey total weight, prey life history stage, and id codes (haul, lat/lon, etc)
+diet_dat <- dat %>% 
+  select(Hauljoin,Year, Month, day, region, Pred_specn, Pred_name,Prey_Name,Prey_twt,Pred_stomwt,Pred_full,Pred_len,Prey_lh,Stationid,Rlat,Rlong) %>% 
+  filter(Prey_Name=="Opilio Crab")
+
+# also, collect the total number of cod stomach samples by year and station
+total_stomach_samples <- dat %>% group_by(Year,Stationid) %>% summarise(totn=length(unique(Pred_specn)))
+ls <- list(crabs=diet_dat,nsamples=total_stomach_samples)
+save(ls,file = here('data','cod_crab_diet.Rdata'))
+```
+
+# Descriptive Plots
+
+```{r load}
+load(here('data','cod_crab_diet.Rdata'))
+diet_dat <- ls$crabs
+total_stomach_samples <- ls$nsamples
+```
+
+```{r}
+# life history stage key
+lh <- tibble(Prey_lh=c(as.character(1:9),LETTERS[1:8],'K','L','M','Q','R','S','T','U','V','W','Y'),
+             lh_cat=c('Egg','Nauplius','Zoea','Megalops larva','Veliger larva','Larva','Juvenile','Adults','Larv_Juv_Adults','Juv_Adults','Larv_Juv','Unknown','Polyp','Cypris','Copepodid','Pupa','Nymph','Medusa','Egg carrying female','Egg case','Immature','Subadult','Trochophore larva','Subadult','Mating pair','Mysis','Colony','Soft shell'))
+diet_dat <- diet_dat %>% left_join(lh)
+```
+
+
+```{r}
+# Count of prey by life history stage
+diet_dat %>%
+  count(lh_cat) %>% 
+  ggplot(aes(lh_cat,n))+
+  geom_bar(stat='identity')+
+  labs(title="Number of Observations by Prey Lifestage",x="Crab Life History Category",y="Number of Observations")+
+  theme(axis.text.x=element_text(angle=45,vjust = 0.4))
+
+```
+
+The grand majority of opilio records are either 7 (Juvenile), C (unknown), or L(egg carrying female)
+
+```{r}
+# Total stomach samples (both with and without crabs in them)
+nsamples_by_yr <- total_stomach_samples %>% 
+  group_by(Year) %>% 
+  summarise(totsamples=sum(totn)) %>% 
+  ungroup()
+# Samples by year
+diet_dat %>% 
+  count(Year) %>% 
+  ggplot(aes(Year,n))+
+  geom_point()+geom_line()+
+  ylim(0,NA)+
+  labs(title="Number of Predation Observations by Year",x="Year",y="Number of Observations")
+
+# as a percent of all stomachs
+nsamples_by_station_year <- diet_dat %>%
+  group_by(Year,Stationid) %>% 
+  summarise(ncrab=n_distinct(Pred_specn)) %>% 
+  left_join(total_stomach_samples,by=c("Year","Stationid")) %>% 
+  mutate(perc=ncrab/totn*100) %>% 
+  ungroup()
+
+nsamples_by_station_year %>%
+  group_by(Year) %>%
+  summarise(mean_perc=mean(perc),sd_perc=sd(perc)) %>% 
+  ggplot(aes(Year,mean_perc,ymin=mean_perc-sd_perc,ymax=mean_perc+sd_perc))+
+  geom_ribbon(fill='green',alpha=0.5)+geom_point()+geom_line()+
+  labs(x="Year",y="Percent",title="Percent of all cod stomachs containing crab")
+```
+
+Total observations of snow crabs in cod stomachs spiked sharply in the early 1990s, then declined, and have risen again since 2010
+
+# Construction of Crab Predation Metric
+
+Following Burgos et al.[@Burgos2013], we use the stomach content data to derive indices of predation by cod on crabs. Because we have stomach weight, stomach fullness, and prey weight, we can measure crab prey "importance" as a percentage of total stomach content mass for a given sample. We also use the number of stomachs sample at a given station and year to calculate another metric, weighted by total samples. That is, our first metric is the percent of crab by weight for each stomach containing crab, and the second metric is the first metric times the fraction of total stomachs (by station and year)
+
+```{r}
+diet_dat <- diet_dat %>%
+  mutate(pw=Prey_twt/Pred_stomwt*100) %>% 
+  left_join(nsamples_by_station_year,by=c("Year","Stationid")) %>% 
+  mutate(pwn=pw*(perc/100))
+
+diet_dat %>%
+  group_by(Year) %>% 
+  summarise(mean_pw=mean(pw,na.rm=T),sd_pw=sd(pw,na.rm=T)) %>% 
+  ggplot(aes(Year,mean_pw,ymin=mean_pw-sd_pw,ymax=mean_pw+sd_pw))+
+  geom_point()+geom_line()+geom_linerange(linetype=2)+
+  labs(x="Year",y="Percent of Snow Crabs in \nCrab-Containing Stomachs")
+
+diet_dat %>%
+  group_by(Year) %>% 
+  summarise(mean_pwn=mean(pwn,na.rm=T),sd_pwn=sd(pwn,na.rm=T)) %>% 
+  ggplot(aes(Year,mean_pwn,ymin=mean_pwn-sd_pwn,ymax=mean_pwn+sd_pwn))+
+  geom_point()+geom_line()+geom_linerange(linetype=2)+
+  labs(x="Year",y="Weighted Percent of Snow Crabs in \nCrab-Containing Stomachs")
+```
+
+# Maps
+
+Simple, non-transformed total weight, but aggregated by `Stationid`
+
+```{r,fig.height=10,fig.width=8}
+# alaska state outline
+library(rnaturalearth)
+ak <- ne_states(country="United States of America",returnclass = 'sf') %>% 
+  select(name) %>% filter(name=="Alaska") %>% 
+  st_transform(26904)
+
+# summarize data
+pred_by_station_year <- diet_dat %>% 
+  group_by(Year,Stationid) %>% 
+  summarise(twt=sum(Prey_twt,na.rm=T),pwn=mean(pwn,na.rm=T),lat=mean(Rlat,na.rm=T),lon=mean(Rlong,na.rm=T)) %>% 
+  ungroup() %>% 
+  st_as_sf(coords=c('lon','lat'),crs=4326) %>% st_transform(26904)
+
+# weight by year
+library(viridis)
+bbox <- st_bbox(pred_by_station_year)
+predweight_by_station_year_plot <- ggplot()+
+  geom_sf(data=pred_by_station_year,aes(col=log(twt)),size=2)+
+  geom_sf(data=ak)+
+  facet_wrap(~Year)+
+  guides(size='none')+
+  scale_color_viridis()+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(col="Log Crab\nWeight")+
+  theme(axis.text=element_blank())
+predweight_by_station_year_plot
+```
+
+And our calculated stomach-ratio metric
+
+```{r,fig.height=10,fig.width=8}
+pratio_by_station_year_plot <- ggplot()+
+  geom_sf(data=pred_by_station_year,aes(col=pwn),size=2)+
+  geom_sf(data=ak)+
+  facet_wrap(~Year)+
+  guides(size='none')+
+  scale_color_viridis()+
+  xlim(bbox[1],bbox[3])+ylim(bbox[2],bbox[4])+
+  labs(col="Predation \nIndex")+
+  theme(axis.text=element_blank())
+pratio_by_station_year_plot
+```
+
+# Comparison to VAST outputs
+
+Here we pull out the results from our main VAST analysis and correlate them to the diet data.
+
+```{r load VAST}
+which_VAST <- "opilio_gadus_numbers_covars"
+load(here('vast','output',which_VAST,'Save.Rdata'))
+```
+
+Load temperature and depth info to join to VAST outputs
+
+```{r}
+# temperature and depth info
+library(RANN)
+load('data/depth_interpolated.RData')
+load('data/nbt_interpolated.RData')
+load(here('vast','output',which_VAST,'Spatial_List.Rdata'))
+
+make_density_covariates <- function(dat) {
+  # locations of knots from Spatial_List object
+  loc_knots <- Spatial_List$loc_x
+  # years
+  yrs <- seq(min(dat$year),max(dat$year))
+  # locations of interpolated temperature and depth info
+  loc_covars <- nbt.interpolated %>% distinct(x,y)
+  # nearest neighbors (knots and interpolated covariates)
+  which_nn <- nn2(data=loc_covars,query=loc_knots,k=1)$nn.idx[,1]
+  # for each knot in each year, find nearest neighbor from the interpolated datasets
+  X_gtp <- array(data=NA,dim=c(nrow(loc_knots),length(yrs),2))
+  # fill in covariates for each knot in each year
+  # depth is constant across years
+  for(j in 1:length(yrs)) {
+    yr_temp <- nbt.interpolated %>% filter(year==yrs[j])
+    X_gtp[,j,1] <- yr_temp$temp[which_nn]
+    X_gtp[,j,2] <- depth.interpolated$depth[which_nn]
+  }
+  return(X_gtp)
+}
+
+X_gtp <- make_density_covariates(dat=Save$Data)
+```
+
+
+Then, construct a data frame of modeled enconter probability between cod and crab
+
+```{r}
+# plot co-encounter probability and station/density ##
+# pull out encounter rate and log estimated density
+enc_est <- Save$Report$R1_gcy
+knots <- as_tibble(Spatial_List$loc_x) %>% mutate(station=row_number())
+dims <- dim(enc_est)
+nstations <- dims[1]
+nyrs <- dims[3]
+ncats <- dims[2]
+dim(enc_est) <- c(nstations*nyrs,ncats)
+
+# rearrange into dataframe
+dens_est <- log(Save$Report$D_gcy)
+dim(dens_est) <- c(nstations*nyrs,ncats)
+
+cats <- tools::toTitleCase(levels(Save$Data$spp))
+cats <- gsub(" ","_",cats)
+colnames(dens_est) <- cats
+colnames(enc_est) <- cats
+dens_est <- as_tibble(dens_est) %>% mutate(type='log_dens')
+enc_est <- as_tibble(enc_est) %>% mutate(type='encounter')
+dens_enc <- bind_rows(dens_est,enc_est)
+
+Year_Set <- seq(range(Save$Data$year)[1],range(Save$Data$year)[2],by=1)
+
+enc_dens_df <- tibble(station=rep(1:nstations,nyrs*2),year=rep(rep(Year_Set,each=nstations),2)) %>% 
+  bind_cols(dens_enc) %>% left_join(knots)
+
+# add depth and temperature information
+depth_temp <- X_gtp
+dim(depth_temp) <- c(dims[1]*dims[3],2)
+enc_dens_df <- enc_dens_df %>% 
+  mutate(temp=rep(depth_temp[,1],2),depth=rep(depth_temp[,2],2)) %>% 
+  # add depth domain category
+  mutate(domain=case_when(
+    depth<50 ~ "Inner",
+    depth>=50 & depth<=100 ~ "Middle",
+    depth>100 ~ "Outer"
+  ))
+```
+
+Next, we turn to combining the encounter probability and density data with the Pacific cod diet data. We do this by matching each each diet observation with its nearest neighbor in the VAST data.
+
+```{r}
+# locations of diet data, converted to UTM
+diet_dat_utm <- diet_dat %>% st_as_sf(coords=c("Rlong","Rlat"),crs=4326) %>% st_transform(26904)
+diet_coords <- st_coordinates(diet_dat_utm)/1000
+
+# locations of VAST knots
+loc_knots <- Spatial_List$loc_x
+# diet_coords <- as_tibble(diet_coords) %>% set_names('lon','lat')
+# nearest neighbors (knots and diet data points)
+which_nn <- nn2(data=loc_knots,query=diet_coords,k=1)$nn.idx[,1]
+
+# add matched knot to diet data
+diet_dat <- diet_dat %>% mutate(VAST_knot=which_nn)
+
+# Combined data
+diet_VAST_df <- diet_dat %>% left_join(enc_dens_df,by=c('Year'='year','VAST_knot'='station'))
+```
+
+## Simple Correlations
+
+Look at linear correlations with prey weight in stomachs and predicted densities and occurrences of different species categories
+
+```{r}
+library(broom)
+pwn_enc_cor <- diet_VAST_df %>% 
+  filter(type=="encounter") %>% 
+  select(pwn,Opilio_Immature:Large_Cod) %>% 
+  cor(use="complete.obs")
+pwn_dens_cor <- diet_VAST_df %>%
+  filter(type=="log_dens") %>% 
+  select(pwn,Opilio_Immature:Large_Cod) %>% 
+  cor(use="complete.obs")
+kable(pwn_enc_cor,digits = 3)
+kable(pwn_dens_cor,digits=3)
+```
+
+There don't seem to be any strong correlations, at least with the prey total weight metric from the diet data
+
+## Joint Encounter Rates
+
+Let's see if the diet metrics relate to *joint* encounter rates of cod/crab size categories
+
+```{r}
+# construct joint encounter rates
+VAST_joint_enc <- enc_dens_df %>%
+  filter(type=="encounter") %>% 
+  mutate(io_sc=Opilio_Immature*Small_Cod,
+         io_mc=Opilio_Immature*Medium_Cod,
+         io_lc=Opilio_Immature*Large_Cod,
+         so_sc=Opilio_Spawner*Small_Cod,
+         so_mc=Opilio_Immature*Medium_Cod,
+         so_lc=Opilio_Spawner) %>% 
+  ungroup()
+diet_VAST_joint_enc <- diet_VAST_df %>%
+  filter(type=="encounter") %>% 
+  mutate(io_sc=Opilio_Immature*Small_Cod,
+         io_mc=Opilio_Immature*Medium_Cod,
+         io_lc=Opilio_Immature*Large_Cod,
+         so_sc=Opilio_Spawner*Small_Cod,
+         so_mc=Opilio_Immature*Medium_Cod,
+         so_lc=Opilio_Spawner) %>% 
+  ungroup()
+
+int_labeller <- c(
+  io_sc = "Immature Opilio\nSmall Cod",
+  io_mc = "Immature Opilio\nMedium Cod",
+  io_lc = "Immature Opilio\nLarge Cod",
+  so_sc = "Spawner Opilio\nSmall Cod",
+  so_mc = "Spawner Opilio\nMedium Cod",
+  so_lc = "Spawner Opilio\nLarge Cod"
+)
+# joint encounter rate of all cod/crab category combinations
+diet_VAST_joint_enc %>% 
+  select(io_sc:so_lc) %>% 
+  gather("interac","joint_enc") %>% 
+  ggplot(aes(joint_enc,fill=interac))+
+  geom_histogram(col=NA,bins=5)+
+  scale_fill_npg()+
+  guides(fill='none')+
+  facet_wrap(~interac,labeller = labeller(interac=int_labeller))+
+  labs(x="Joint Encounter Rate",y="Count",title="Modeled Joint Encounter Rates for Stations with Diet Data")
+
+# Compare to overall distributions of joint encounter rates
+VAST_joint_enc %>% 
+  select(io_sc:so_lc) %>% 
+  gather("interac","joint_enc") %>% 
+  ggplot(aes(joint_enc,fill=interac))+
+  geom_histogram(col=NA,bins=5)+
+  scale_fill_npg()+
+  guides(fill='none')+
+  facet_wrap(~interac,labeller = labeller(interac=int_labeller))+
+  labs(x="Joint Encounter Rate",y="Count",title="Modeled Joint Encounter Rates, all Stations")
+
+```
+
+Although in both data sets, both species are expected to co-occur in the large majority of sites, the sites with diet data have an even more skewed distribution of joint encounter rates.
+
+We could also look at whether years with higher encounter rates also have a higher predation signal from the diet data
+
+```{r}
+joint_enc_by_year <- diet_VAST_joint_enc %>% 
+  select(Year,pwn,io_sc:so_lc) %>% 
+  group_by(Year,pwn) %>% 
+  gather("interac","joint_enc",io_sc:so_lc)%>%
+  group_by(Year) %>% 
+  summarise(mean_enc=mean(joint_enc),sd_enc=sd(joint_enc),mean_prey=mean(pwn),sd_prey=sd(pwn)) %>% 
+  ungroup()
+
+joint_enc_by_year %>%
+  ggplot(aes(Year,mean_enc,ymax=mean_enc+sd_enc,ymin=mean_enc-sd_enc))+
+  geom_linerange(linetype=2)+geom_line()+geom_point()+
+  labs(x="Year",y="Encounter Rate, all categories")
+```
+
+## Relationship with Cod and Crab Predicted Density
+
+Joint encounter rates are all relatively quite high for these two species, and don't seem to have a strong relationship with the total weight prey data. We can look if predicted densities have any relationship to the predation indices. We do this with simple linear models
+
+```{r}
+pw_lm <- diet_VAST_df %>% filter(type=="log_dens") %>% 
+  lm(pw~Opilio_Immature+Opilio_Spawner+Small_Cod+Medium_Cod+Large_Cod,data=.)
+tidy(pw_lm) %>% kable()
+glance(pw_lm)
+pwn_lm <- diet_VAST_df %>% filter(type=="log_dens") %>% 
+  lm(pwn~Opilio_Immature+Opilio_Spawner+Small_Cod+Medium_Cod+Large_Cod,data=.)
+tidy(pwn_lm) %>% kable()
+glance(pwn_lm)
+```
+
