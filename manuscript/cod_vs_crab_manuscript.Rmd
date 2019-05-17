@@ -1,0 +1,48 @@
+---
+title: "Environmental Variability Drives Predation Risk: A Bering Sea Example"
+author: "Liu, O.R., Szuwalski, C.S., Gaines, S.D."
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: bookdown::pdf_document2
+editor_options:
+  chunk_output_type: inline
+fontsize: 11pt
+header-includes:
+- \usepackage[left]{lineno}
+- \linenumbers
+- \renewcommand\linenumberfont{\normalfont\bfseries\small}
+csl: nature.csl
+bibliography: library.bib
+---
+
+```{r global options, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE)
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Abstract
+
+# Introduction
+
+Managed species are important
+There is a push for ecosystem-based fisheries management
+There are two major things we are not good at characterizing- environmental variability and species interactions
+We know that interactions can play a large role in population dynamics
+Pacific cod and snow crab are two of the largest and most lucrative fisheries in the eastern Bering Sea
+  Both have declined (show some stats); cod collapses elsewhere
+  We know that cod eat crab
+  We know that both are influenced by temperature and ontogenetic dynamics
+  What we don't know is how these influences interact
+We use spatiotemporal models and spatially-resolved diet data to characterize the relationships between cod and snow crab dynamics and spatial distributions
+Our approach helps to sort out the complex interactions between dynamic species distributions, the environment, and interactions
+
+The goal of ecosystem-based fisheries management (EBFM) is to promote sustainable marine ecosystems and fisheries through consideration of interactions between humans and both biotic and abiotic elements of the natural environment. Although EBFM has been actively pursued for decades[@Pikitch2004;@Fogarty2014] implementation has been a difficult goal to achieve[@Pitcher2009]. One of the reasons for the slow adoption of EBFM is the technical difficulty inherent in trying to simultaneously account for the influences of species interactions and varying environmental conditions on species' abundances and distributions across space[@Orio2019].
+
+Some fishery collapses---or lack of recoveries---have been attributed to a failure to account for species interactions[@Hollowed2000;@Swain2012]. Importantly, declining to include species interactions like predation into models of population dynamics may lead to an underestimation of uncertainty and perhaps to overly optimistic or risky management advice[@Hollowed2000a]. At the same time, environmental drivers act on these interacting species, determining phenology, patterns of species movements, recruitment of new individuals into populations, and by extension, overall productivity[@Pagel2012;@Szuwalski2015]. When environmental drivers cause greater spatial overlap between predators and prey, interactions will intensify and the relative influence of predation will strengthen[@Kempf2010]. In this way, environmental variability drives patterns of species interactions.
+
+In fisheries that have declined from historical production levels, there are often attempts to attribute causation to either species interactions or environmental change in addition to fishing pressure[@Frank2016;@Swain2019]. One such fishery is the snow crab (*Chionoecetes opilio*) fishery in the eastern Bering Sea. The fishery for snow crab is one of the most valuable crustacean fisheries in the world, but has experienced marked fluctuations in stock size over the course of its exploitation history[@Parada2010]. Production in the snow crab fishery peaked in the late 1980s, but landings declined by more than an order of magnitude from the early 1990s to the early 2000s. However, the snow crab stock has recently been rebuilt after a string of strong year classes since 2010[@NPFMC2018].
+
+A number of hypotheses have been suggested to explain the fluctuations in the snow crab population in the eastern Bering Sea, including oceanographic and climate forcing[@Zheng2006;@Parada2010;@Orensanz2004]. Juvenile snow crab settlement has been correlated to the annual spatial extent of the "cold pool", an area with near-bottom temperatures < 2$^{\circ}$C which is created by severe stratification of the water column as ice melts across a large portion of the Bering Sea in the spring[@Wyllie-Echeverria1998;@Ernst2005]. After warmer years, the cold pool extent is reduced to the northwest, while after colder winters it can extend across a wide area of the shelf to the southeast(FIGURE INTRO MAP). Moreover, after warm years as the snow crab population contracts to the northwest, the stock can have trouble recolonizing the southern portion of the shelf. Orensanz et al. (2004)[@Orensanz2004] postulated that this is perhaps due to the fact that prevailing currents in the region flow in a northwesterly direction, preventing larvae from being advected "upstream" to other portions of the shelf, even after environmental conditions have returned to normal[@Ernst2012].
+
+Predation by fish predators on the juvenile snow crabs may be another important driver of their spatial populations dynamics[@Livingston1989;@Orensanz2004;@Burgos2013].
