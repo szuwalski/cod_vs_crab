@@ -40,6 +40,7 @@ cod_dat <- cod_dat_raw %>%
 
 save(cod_dat,file='data/cod_dat_size_number.Rdata')
 ## Summarize by haul
+load(file='data/cod_dat_size_number.Rdata')
 # count number of samples by haul
 individuals_per_haul <- cod_dat %>% 
   group_by(year,hauljoin) %>% 

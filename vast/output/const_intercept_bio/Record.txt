@@ -1,0 +1,45 @@
+$Version
+[1] "VAST_v7_0_0"
+
+$Method
+[1] "Mesh"
+
+$n_x
+[1] 100
+
+$Aniso
+[1] 1
+
+$FieldConfig
+  Omega1 Epsilon1   Omega2 Epsilon2 
+       3        3        3        3 
+
+$RhoConfig
+   Beta1    Beta2 Epsilon1 Epsilon2 
+       3        3        0        0 
+
+$OverdispersionConfig
+Eta1 Eta2 
+   0    0 
+
+$VamConfig
+Method   Rank Timing 
+     0      0      0 
+
+$ObsModel
+[1] 2 1
+
+$Region
+[1] "Eastern_Bering_Sea"
+
+$Species_set
+[1] "Opilio immature" "Opilio spawner"  "Pacific cod"    
+
+$strata.limits
+     STRATA
+1 All_areas
+
+$Options
+         SD_site_density       SD_site_logdensity          Calculate_Range       Calculate_evenness Calculate_effective_area         Calculate_Cov_SE      Calculate_Synchrony      Calculate_Coherence 
+                       0                        0                        1                        0                        1                        0                        0                        0 
+

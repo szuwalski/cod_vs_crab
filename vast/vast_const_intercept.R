@@ -93,6 +93,7 @@ dat <- dat_combined %>% filter(spp %in% Species_set)
 strata.limits <- data.frame(STRATA = "All_areas")
 
 Extrapolation_List = make_extrapolation_info(Region = Region,strata.limits = strata.limits)
+save(Extrapolation_List,file= paste0(fp,"Extrapolation_List.Rdata"))
 
 # generate the information used for conducting spatio-temporal parameter estimation, bundled in list `Spatial_List`
 
@@ -186,28 +187,29 @@ library(RANN)
 load('data/depth_interpolated.RData')
 load('data/nbt_interpolated.RData')
 
-make_density_covariates <- function() {
+make_density_covariates <- function(type="loc_x") {
   # locations of knots from Spatial_List object
-  loc_knots <- Spatial_List$loc_x
+  loc_query <- Spatial_List[[type]]
   # years
   yrs <- seq(min(dat$year),max(dat$year))
   # locations of interpolated temperature and depth info
   loc_covars <- nbt.interpolated %>% distinct(x,y)
   # nearest neighbors (knots and interpolated covariates)
-  which_nn <- nn2(data=loc_covars,query=loc_knots,k=1)$nn.idx[,1]
+  which_nn <- nn2(data=loc_covars,query=loc_query,k=1)$nn.idx[,1]
   # for each knot in each year, find nearest neighbor from the interpolated datasets
-  X_gtp <- array(data=NA,dim=c(nrow(loc_knots),length(yrs),2))
+  X_xtp <- array(data=NA,dim=c(nrow(loc_query),length(yrs),2))
   # fill in covariates for each knot in each year
   # depth is constant across years
   for(j in 1:length(yrs)) {
     yr_temp <- nbt.interpolated %>% filter(year==yrs[j])
-    X_gtp[,j,1] <- yr_temp$temp[which_nn]
-    X_gtp[,j,2] <- depth.interpolated$depth[which_nn]
+    X_xtp[,j,1] <- yr_temp$temp[which_nn]
+    X_xtp[,j,2] <- depth.interpolated$depth[which_nn]
   }
-  return(X_gtp)
+  return(X_xtp)
 }
 
-X_gtp <- make_density_covariates()
+X_gtp <- make_density_covariates(type="loc_x")
+X_itp <- make_density_covariates(type="loc_i")
 
 #### Build and Run Model ####
 
@@ -218,15 +220,14 @@ TmbData = make_data("Version"=Version,
                     "RhoConfig"=RhoConfig, 
                     "VamConfig" = VamConfig,
                     "ObsModel"=ObsModel,
-                    "spatial_list"=Spatial_List,
                     "c_iz"=as.numeric(dat$spp)-1,
                     "b_i"=dat$abun, 
                     "a_i"=dat$area_km2, 
                     "v_i"=as.numeric(dat$vessel)-1, 
                     "s_i"=dat$knot_i-1, 
                     "t_iz"=dat$year,
-                    "a_xl"=Spatial_List$a_gl,
-                    "X_gtp"=X_gtp,
+                    "a_xl"=Spatial_List$a_xl,
+                    "X_xtp"=X_gtp,
                     "MeshList"=Spatial_List$MeshList,
                     "GridList"=Spatial_List$GridList,
                     "Method"=Spatial_List$Method,
@@ -266,7 +267,7 @@ Obj$gr( Obj$par )
 BiasCorr= TRUE
 Opt = TMBhelper::Optimize( obj=Obj, lower=TmbList[["Lower"]], upper=TmbList[["Upper"]], savedir=fp, getsd=TRUE, 
                            bias.correct=BiasCorr, newtonsteps=1, 
-                           bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct=c("Index_cyl")))
+                           bias.correct.control=list(sd=FALSE, split=NULL, nsplit=1, vars_to_correct=c("Index_cyl","effective_area_cyl","mean_Z_cym")))
 Opt$time_for_run
 Report = Obj$report()
 Save = list("Opt"=Opt, "Report"=Report, "ParHat"=Obj$env$parList(Opt$par), "Data"=dat, "Map"=Map)
@@ -304,9 +305,11 @@ Q = plot_quantile_diagnostic( TmbData=TmbData, Report=Report, FileName_PP="Poste
                               FileName_Phist="Posterior_Predictive-Histogram", 
                               FileName_QQ="Q-Q_plot", FileName_Qhist="Q-Q_hist", DateFile=fp )
 
+save(Q,file=paste0(fp,"quantile_diag.Rdata"))
+
 ## Plotting residuals on a map
 # Get region-specific settings for plots
-MapDetails_List = make_map_info( "Region"=Region,spatial_list = Spatial_List, "NN_Extrap"=Spatial_List$PolygonList$NN_Extrap, "Extrapolation_List"=Extrapolation_List )
+MapDetails_List = make_map_info( "Region"=Region, "NN_Extrap"=Spatial_List$PolygonList$NN_Extrap, "Extrapolation_List"=Extrapolation_List )
 # Decide which years to plot                                                   
 Year_Set = seq(min(dat$Year),max(dat$Year))
 Years2Include = which( Year_Set %in% sort(unique(dat$Year)))
@@ -314,8 +317,8 @@ Years2Include = which( Year_Set %in% sort(unique(dat$Year)))
 # Plot Pearson residuals.  
 # If there are visible patterns (areas with consistently positive or negative residuals accross or within years) 
 # then this is an indication of the model "overshrinking" results towards the intercept, and model results should then be treated with caution.  
-TmbData$n_x <- TmbData$n_g
-plot_residuals(Lat_i=dat[,'Lat'], Lon_i=dat[,'Lon'], TmbData=TmbData, Report=Report, Q=Q, 
+TmbData$n_x <- 100
+res <- plot_residuals(Lat_i=dat[,'Lat'], Lon_i=dat[,'Lon'], TmbData=TmbData, Report=Save$Report, Q=Q, 
                savedir=fp, MappingDetails=MapDetails_List[["MappingDetails"]], 
                PlotDF=MapDetails_List[["PlotDF"]], MapSizeRatio=MapDetails_List[["MapSizeRatio"]], 
                Xlim=MapDetails_List[["Xlim"]], Ylim=MapDetails_List[["Ylim"]], FileName=fp, Year_Set=Year_Set, 
@@ -334,8 +337,11 @@ plot_anisotropy( FileName=paste0(fp,"Aniso.png"), Report=Report, TmbData=TmbData
 
 # Spatial and spatio-temporal covariance among species in encounter probability and positive catch rates 
 # (depending upon what is turned on via `FieldConfig`)
+Cor_List = Summarize_Covariance( Report=Report, ParHat=Obj$env$parList(), Data=TmbData, 
+                                 SD=Save$Opt$SD, plot_cor=TRUE,figname = "Cor", category_names=levels(dat$spp), 
+                                 plotdir=fp, mgp=c(2,0.5,0), tck=-0.02, oma=c(0,5,2,2) )
 Cov_List = Summarize_Covariance( Report=Report, ParHat=Obj$env$parList(), Data=TmbData, 
-                                 SD=Save$Opt$SD, plot_cor=FALSE, category_names=levels(dat$spp), 
+                                 SD=Save$Opt$SD, plot_cor=FALSE,figname = "Cov", category_names=levels(dat$spp), 
                                  plotdir=fp, mgp=c(2,0.5,0), tck=-0.02, oma=c(0,5,2,2) )
 
 ## Density surface for each year
@@ -355,7 +361,7 @@ Index = plot_biomass_index( DirName=fp, TmbData=TmbData, Sdreport=Opt[["SD"]], Y
 pander::pandoc.table( Index$Table[,c("Year","Fleet","Estimate_metric_tons","SD_log","SD_mt")] ) 
 
 # Range expansion/contraction
-plot_range_index(Report=Report, TmbData=TmbData, Sdreport=Opt[["SD"]], Znames=colnames(TmbData$Z_xm), PlotDir=fp, 
+range_index <- plot_range_index(Report=Report, TmbData=TmbData, Sdreport=Opt[["SD"]], Znames=colnames(TmbData$Z_xm), PlotDir=fp, 
                  category_names = levels(dat$spp),Year_Set=Year_Set)
 
 
@@ -366,121 +372,5 @@ factors <- Plot_factors( Report=Save$Report, ParHat=Save$ParHat, Data=TmbData, S
                          Year_Set=Year_Set, category_names=levels(dat$spp), plotdir=fp )
 fct_loadings <- plot_fct_loadings(factors,dat,rotated = TRUE,fp)
 
-# plot 2-dimensional loadings
-library(ggsci)
-pca <- fct_loadings %>% 
-  filter(fct_num < 3) %>% 
-  select(spp,fct,fct_num,load) %>%
-  unite("fct",fct,fct_num) %>% 
-  group_by(spp) %>% 
-  spread(fct,load) %>% 
-  mutate(spp_sym= ifelse(spp %in% c('Opilio Immature','Opilio Spawner'),'crab','cod'))
-pca_o1_plot <- pca %>% 
-  ggplot(aes(Omega1_1,Omega1_2,col=spp,shape=spp_sym))+
-  geom_point(size=5)+
-  coord_equal()+
-  geom_hline(yintercept=0)+geom_vline(xintercept=0)+
-  xlim(-2,2)+ylim(-2,2)+
-  scale_color_npg()+
-  guides(shape='none')+
-  theme(legend.position = c(0.8,0.2))+
-  labs(title="Spatial Variation, Encounter Probability",x="Factor 1",y="Factor 2",col='')
-pca_o1_plot
-pca_o2_plot <- pca %>% 
-  ggplot(aes(Omega2_1,Omega2_2,col=spp,shape=spp_sym))+
-  geom_point(size=5)+
-  coord_equal()+
-  geom_hline(yintercept=0)+geom_vline(xintercept=0)+
-  xlim(-2,2)+ylim(-2,2)+
-  scale_color_npg()+
-  guides(col='none',shape='none')+
-  labs(title="Spatial Variation, Positive Abundance",x="Factor 1",y="Factor 2",col='')
-pca_o2_plot
-pca_e1_plot <- pca %>% 
-  ggplot(aes(Epsilon1_1,Epsilon1_2,col=spp,shape=spp_sym))+
-  geom_point(size=5)+
-  coord_equal()+
-  geom_hline(yintercept=0)+geom_vline(xintercept=0)+
-  xlim(-0.5,0.5)+ylim(-0.5,0.5)+
-  scale_color_npg()+
-  guides(col='none',shape='none')+
-  labs(title="Spatiotemporal Variation, Encounter Probability",x="Factor 1",y="Factor 2",col='')
-pca_e1_plot
-pca_e2_plot <- pca %>% 
-  ggplot(aes(Epsilon2_1,Epsilon2_2,col=spp,shape=spp_sym))+
-  geom_point(size=5)+
-  coord_equal()+
-  geom_hline(yintercept=0)+geom_vline(xintercept=0)+
-  xlim(-1,1)+ylim(-1,1)+
-  scale_color_npg()+
-  guides(col='none',shape='none')+
-  labs(title="Spatiotemporal Variation, Positive Abundance",x="Factor 1",y="Factor 2",col='')
-pca_e2_plot
-
-library(gridExtra)
-pca_combined <- grid.arrange(pca_o1_plot,pca_o2_plot,pca_e1_plot,pca_e2_plot,nrow=2)
-
-ggsave(plot=pca_combined,h=10,w=10,filename = paste0(fp,"pca_combined.png"))
-
-#correlations
-corr_enc <-  plot_category_correlations(Report=Save$Report,Spatial_List,Extrapolation_List,dat,type='enc')
-corr_enc
-ggsave(plot=corr_enc,filename=paste0(fp,'correlation_encounter_rate.png'),w=6,h=6)
-corr_pos <-  plot_category_correlations(Report=Save$Report,Spatial_List,Extrapolation_List,dat,type='pos')
-corr_pos
-ggsave(plot=corr_pos,filename=paste0(fp,'correlation_pos_abundance.png'),w=6,h=6)
-corr_dens <-  plot_category_correlations(Report=Save$Report,Spatial_List,Extrapolation_List,dat,type='density')
-corr_dens
-ggsave(plot=corr_dens,filename=paste0(fp,'correlation_predicted_density.png'),w=6,h=6)
-
-# plot co-encounter probability and station/density ##
-# pull out encounter rate and log estimated density
-enc_est <- Save$Report$R1_gcy
-dims <- dim(enc_est)
-nstations <- dims[1]
-nyrs <- dims[3]
-ncats <- dims[2]
-dim(enc_est) <- c(nstations*nyrs,ncats)
-
-# rearrange into dataframe
-dens_est <- log(Save$Report$D_gcy)
-dim(dens_est) <- c(nstations*nyrs,ncats)
-
-cats <- tools::toTitleCase(levels(dat$spp))
-cats <- gsub(" ","_",cats)
-colnames(dens_est) <- cats
-colnames(enc_est) <- cats
-dens_est <- as.tibble(dens_est) %>% mutate(type='log_dens')
-enc_est <- as.tibble(enc_est) %>% mutate(type='encounter')
-dens_enc <- bind_rows(dens_est,enc_est)
-
-enc_dens_df <- tibble(station=rep(1:nstations,nyrs*2),year=rep(rep(Year_Set,each=nstations),2)) %>% 
-  bind_cols(dens_enc)
-
-# add depth and temperature information
-depth_temp <- X_gtp
-dim(depth_temp) <- c(dims[1]*dims[3],2)
-enc_dens_df <- enc_dens_df %>% 
-  mutate(temp=rep(depth_temp[,1],2),depth=rep(depth_temp[,2],2)) %>% 
-  # add depth domain category
-  mutate(domain=case_when(
-    depth<50 ~ "Inner",
-    depth>=50 & depth<=100 ~ "Middle",
-    depth>100 ~ "Outer"
-  ))
-
-enc_temp_depth <- enc_dens_df %>% 
-  filter(type=='encounter') %>% 
-  # joint encounter probability for immature opilio and medium cod
-  mutate(opi_medcod=Opilio_Immature*Medium_Cod)
-
-quants <- c(0.05,0.5,0.95)
-enc_temp_plot <- enc_temp_depth %>% 
-  filter(domain=='Middle') %>% 
-  ggplot(aes(temp,opi_medcod))+
-  geom_point()+geom_quantile(quantiles=quants,size=2)+
-  labs(x='Temperature',y='Joint Encounter Probability',title="Immature Crab and Medium Cod\nJoint Encounter Probability")
-# facet_wrap(~domain,nrow=2)
-enc_temp_plot
-
-ggsave(plot=enc_temp_plot,filename=paste0(fp,'temp_joint_enc.png'),w=6,h=6)
+outs <- list(factors=factors,fct_loadings=fct_loadings,res=res,Index=Index,range_index=range_index)
+save(outs,file=paste0(fp,"derived_quantities.Rdata"))

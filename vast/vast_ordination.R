@@ -14,13 +14,11 @@ dir.create(fp)
 model_directory <- paste0(getwd(),'/vast/output/ordination/model/')
 dir.create(model_directory)
 
-example <- load_example(data_set="five_species_ordination")
-
 # Make settings
-settings <- make_settings(n_x = 100,Region = "eastern_bering_sea",
-                          purpose = "ordination",fine_scale = TRUE,
+settings <- make_settings(n_x = 50,Region = "eastern_bering_sea",
+                          purpose = "ordination",fine_scale = FALSE,
                           strata.limits = data.frame(STRATA = "All_areas"),
-                          zone=NA,n_categories = 2,treat_nonencounter_as_zero = TRUE)
+                          zone=NA,n_categories = 2,treat_nonencounter_as_zero = FALSE)
 
 # Calculate density covariates
 
@@ -42,4 +40,4 @@ fit <- fit_model(settings = settings,
                  b_i = dat_combined[,'abun'],a_i = dat_combined[,'area_km2'],X_gtp = NULL,
                  # X_itp = array(0,dim=c(length(dat_combined[,'abun']),dim(X_gtp)[2:3])),
                  working_dir = model_directory,silent = FALSE)
-results = plot_results(fit = fit,settings = settings,working_dir = fp)
+results = plot_results(fit = fit,settings = settings,working_dir = fp,plot_set = 3)

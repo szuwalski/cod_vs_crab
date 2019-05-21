@@ -150,7 +150,7 @@ diet_dat %>%
 
 Simple, non-transformed total weight, but aggregated by `Stationid`
 
-```{r,fig.height=10,fig.width=8}
+```{r,fig.height=10,fig.width=8,eval=F}
 # alaska state outline
 library(rnaturalearth)
 ak <- ne_states(country="United States of America",returnclass = 'sf') %>% 
@@ -181,7 +181,7 @@ predweight_by_station_year_plot
 
 And our calculated stomach-ratio metric
 
-```{r,fig.height=10,fig.width=8}
+```{r,fig.height=10,fig.width=8,eval=FALSE}
 pratio_by_station_year_plot <- ggplot()+
   geom_sf(data=pred_by_station_year,aes(col=pwn),size=2)+
   geom_sf(data=ak)+
@@ -199,8 +199,10 @@ pratio_by_station_year_plot
 Here we pull out the results from our main VAST analysis and correlate them to the diet data.
 
 ```{r load VAST}
-which_VAST <- "opilio_gadus_numbers_covars"
+which_VAST <- "const_intercept"
 load(here('vast','output',which_VAST,'Save.Rdata'))
+load(here('vast','output',which_VAST,'quantile_diag.Rdata'))
+load(here('vast','output',which_VAST,'residuals.Rdata'))
 ```
 
 Load temperature and depth info to join to VAST outputs
@@ -410,4 +412,51 @@ pwn_lm <- diet_VAST_df %>% filter(type=="log_dens") %>%
 tidy(pwn_lm) %>% kable()
 glance(pwn_lm)
 ```
+
+## Relationships with residuals
+
+We pull out the abundance residuals from the model and compare that to the cod diet data
+
+```{r}
+# Have to use TmbData from older version of VAST for this
+r_enc <- res$Q1_xy
+dim(r_enc) <- c(nstations*nyrs)
+r_pos <- res$Q2_xy
+dim(r_pos) <- c(nstations*nyrs)
+
+r_df <- tibble(station=rep(1:nstations,nyrs),year=rep(Year_Set,each=nstations),r_enc=r_enc,r_pos=r_pos) %>% 
+  gather(residual_type,residual_value,r_enc:r_pos)
+
+diet_VAST_df <- diet_VAST_df %>% left_join(r_df,by=c('Year'='year','VAST_knot'='station'))
+
+pwn_res_enc_cor <- diet_VAST_df %>% 
+  filter(residual_type=="r_enc") %>% 
+  select(pwn,residual_value,Opilio_Immature:Large_Cod) %>% 
+  cor(use="complete.obs")
+pwn_res_pos_cor <- diet_VAST_df %>%
+  filter(residual_type=="r_pos") %>% 
+  select(pwn,residual_value,Opilio_Immature:Large_Cod) %>% 
+  cor(use="complete.obs")
+kable(pwn_res_enc_cor,digits = 3)
+kable(pwn_res_pos_cor,digits=3)
+
+```
+
+## VAST density with lags
+
+```{r}
+lead1 <- function(vec) lead(vec,1)
+lead2 <- function(vec) lead(vec,2)
+lead3 <- function(vec) lead(vec,3)
+lead4 <- function(vec) lead(vec,4)
+# with lags
+dens_leads_df <- enc_dens_df %>% group_by(station,type) %>% mutate_at(vars(Opilio_Immature:Large_Cod),funs(lead1,lead2,lead3,lead4))
+dens_lead_cor <- dens_leads_df %>% 
+  ungroup() %>% 
+  filter(type=="log_dens") %>% 
+  select(Medium_Cod:Large_Cod,Opilio_Immature_lead1,Opilio_Immature_lead2,Opilio_Immature_lead3,Opilio_Immature_lead4) %>% 
+  cor(use="complete.obs")
+kable(dens_lead_cor,digits = 3)
+```
+
 

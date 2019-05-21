@@ -18,16 +18,9 @@ ak <- read_sf('data/spatial/cb_2017_02_anrc_500k.shp') %>%
   st_union() %>% 
   st_transform(26904)
 
-## data for testing ##
-# fp = paste0(getwd(),'/vast/output/opilio_gadus_numbers_covars/')
-# load(paste0(fp,"Record.Rdata"))
-# load(paste0(fp,"Save.RData"))
-# load(paste0(fp,"Spatial_List.Rdata"))
-# load(paste0(fp,"parameter_estimates.Rdata"))
-# dat <- Save$Data
-# list2env(Record,envir = environment())
-
-# names(dat) <- c("spp","Year","Lon","Lat","area_km2", "Catch_KG","vessel","knot_i")
+## data for plotting
+fp = paste0(getwd(),'/vast/output/const_intercept/')
+load(paste0(fp,"derived_quantities.Rdata"))
 
 # ggplot theme
 plot_theme <-   theme_minimal()+
@@ -43,7 +36,7 @@ theme_set(plot_theme)
 # Plot predicted density
 plot_density <- function(Region,Spatial_List, Report,Extrapolation_List,dat,fp,saveplots=TRUE) {
   
-  dens <- log(Report$D_gcy)
+  dens <- log(Report$D_xcy)
   cols<-colorRampPalette(colors=c("darkblue","blue","lightblue","lightgreen","yellow","orange","red"))(50)
   
   pts <- Extrapolation_List$Data_Extrap[,c('Lon','Lat','Area_in_survey_km2')] %>% 
@@ -200,21 +193,21 @@ plot_category_correlations <- function(Report,Spatial_List, Extrapolation_List,d
   }
   
   if(type=='density'){
-    est <- log(Report$D_gcy) 
+    est <- log(Report$D_xcy) 
     lab <- "Density"
   }
   if(type=='enc'){
-    est <- Report$R1_gcy
+    est <- Report$R1_xcy
     lab <- "Encounter Probability"
   }
   if(type=='pos'){
-    est <- Report$R2_gcy
+    est <- Report$R2_xcy
     lab <- "Positive Catch Rate"
   }
   cols<-colorRampPalette(colors=c("darkblue","blue","lightblue","lightgreen","yellow","orange","red"))(50)
   
   # row bind all the years for each species
-  report_dims <- dim(Report$D_gcy)
+  report_dims <- dim(Report$D_xcy)
   dim(est) <- c(report_dims[1]*report_dims[3],report_dims[2])
   
   # get correlations
