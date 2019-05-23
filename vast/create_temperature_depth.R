@@ -45,7 +45,6 @@ tdepth_map <- tdepth %>%
 tdepth_map
 
 # Use a convex hull outlining the survey area to extrapolate
-# Here we use EPSG 3571 as the projection
 # flip around the dateline
 tdepth2 <- tdepth %>% mutate(lon_flipped=180 + ifelse(lon>0, lon-360, lon))
 dat.sf <- st_as_sf(tdepth2,coords=c('lon_flipped','lat'),crs=4326) %>% st_transform("+proj=utm +zone=32 +datum=WGS84 +units=km +no_defs")
