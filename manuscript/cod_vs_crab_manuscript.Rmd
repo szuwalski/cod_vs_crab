@@ -1,6 +1,7 @@
 ---
 title: "Environmental Variability Drives Spatial Predation Risk: A Bering Sea Example"
-author: "Liu, O.R., Szuwalski, C.S., Thorson, J.T., Gaines, S.D."
+subtitle: "DRAFT Do not Distribute"
+author: "Liu, O.R., Szuwalski, C.S., Gruss, A., Gaines, S.D."
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: bookdown::word_document2
 editor_options:
